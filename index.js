@@ -32,10 +32,6 @@ const pushResultsToGithub = (results) => {
   }
   let repo = octo.repos(process.env.GITHUB_ORG, process.env.GITHUB_REPO)
   return repo.contents("repos.json").fetch({ ref: "gh-pages" })
-    .catch(error => {
-      console.log(repos)
-      return false
-    })
     .then(file => file.sha || null)
     .then(sha => repo.contents('repos.json').add({
       message: 'Updating repos.json',
