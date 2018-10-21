@@ -12,7 +12,7 @@ const octo = new Octokat({
 const formatResult = result => {
   return {
     owner: result.owner.login,
-    name: result.fullName,
+    name: result.name,
     url: result.html.url,
     archived: result.archived,
     license: result.license ? result.license.name : null,
@@ -28,7 +28,7 @@ const formatResult = result => {
 const pushResultsToGithub = (results) => {
   if (!process.env.GITHUB_REPO) {
     // if no repo specified just output the results
-    console.log(results)
+    console.log(JSON.stringify(results))
     return
   }
   let repo = octo.repos(process.env.GITHUB_ORG, process.env.GITHUB_REPO)
