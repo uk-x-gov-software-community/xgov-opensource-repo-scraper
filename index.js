@@ -6,7 +6,6 @@ const Octokat = require('octokat')
 
 const octo = new Octokat({
   token: process.env.GITHUB_TOKEN,
-  // acceptHeader: "application/vnd.github.black-panther-preview+json" // Header for using Community Profile Preview API
 })
 
 const formatResult = result => {
@@ -15,17 +14,17 @@ const formatResult = result => {
     name: result.name,
     url: result.html.url,
     archived: result.archived,
-    license: result.license ? result.license.name : null,
+    license: result.license,
     stargazersCount: result.stargazersCount,
-    watchersCount: result.watchersCount,
+    // watchersCount: result.watchersCount, // github api appears to be returning the same as the stargazersCount?!
     language: result.language,
     forksCount: result.forksCount,
-    archived: result.archived,
     openIssuesCount: result.openIssuesCount,
   }
 }
 
 const pushResultsToGithub = (results) => {
+  console.log(`count: ${results.length}`)
   if (!process.env.GITHUB_REPO) {
     // if no repo specified just output the results
     console.log(JSON.stringify(results))
@@ -47,25 +46,23 @@ const pushResultsToGithub = (results) => {
     )
 }
 
-
 const fetchAll = async (org, args) => {
   let response = await octo.orgs(org).repos.fetch({ per_page: 100 })
-  let aggregate = response
+  let aggregate = [response]
 
   while (response.nextPage) {
     console.log(`fetched a page for ${org}`)
     response = await response.nextPage()
-    aggregate = _.concat(response)
+    aggregate.push(response)
   }
   return aggregate
 }
 
-
-
 request('https://raw.githubusercontent.com/github/government.github.com/gh-pages/_data/governments.yml')
   .then(yaml.safeLoad)
+  // .then(() => ["ukhomeoffice"])
   .then(fullList => _.concat(fullList['U.K. Councils'], fullList['U.K. Councils'], fullList['U.K. Central']))
-  .map(org => fetchAll(org))
-  .then(_.flatten)
+  .map(fetchAll)
+  .then(_.flattenDeep)
   .map(formatResult)
   .then(pushResultsToGithub)
