@@ -1,4 +1,4 @@
-X-UK-Gov Public Repository Leaderboard
+# X-UK-Gov Public Repository Leaderboard
 
 [![Build Status](https://travis-ci.org/UKHomeOffice/xgov-opensource-repo-scraper.svg?branch=master)](https://travis-ci.org/UKHomeOffice/xgov-opensource-repo-scraper)
 
