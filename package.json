@@ -21,7 +21,7 @@
   "dependencies": {
     "github": "^14.0.0",
     "js-yaml": "^3.12.0",
-    "lodash": "^4.17.11",
+    "lodash": "^4.17.13",
     "octokat": "^0.4.18",
     "request": "^2.88.0",
     "request-promise": "^4.2.2"
