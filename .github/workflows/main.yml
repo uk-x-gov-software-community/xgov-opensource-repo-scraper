@@ -10,8 +10,8 @@ jobs:
     runs-on: ubuntu-latest    
     steps:
     - uses: actions/checkout@v1
-    - name: RUN
-      run: node index.js
+    - run: npm install
+    - run: node index.js
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_ORG: UKHomeOffice
