@@ -1,8 +1,0 @@
-language: node_js
-node_js: lts/*
-script: node index.js
-env:
-  global:
-    - GITHUB_ORG=UKHomeOffice
-    - GITHUB_REPO=xgov-opensource-repo-scraper
-    - secure: gKFs9mnsDvAncSep1Zm0k6m6JnWcLaZjE3DiG0VigZGL/Q+7zsHfI+Mqd/WgN2e9Z8owgw/W1QvMO1xRWAYhHz8aowQVj+aMAtrJKui+73HEXYjr7Cxio/nr6omZfsf/XmyDiXo4yNbnuCJAdnfT68XYsssFsXsA+elqJLCSrNJJd0iRM1EioWm0AYExYAGmNNBliEmvlqyuO0VwX7AcC8+vQNa9VVh/3Tszad4YwTgJPsoGw6u11Boh0MNlC1EW/pQBcNpXoMKqir+ZqE5dc24/UYbsLFnjKo8TFKlLf8/ytT8QwPQSEiNQjw5sSttGwjc7CaPQR0qpa+8Cn8373htM0BT63x20KMKkaSkya50KgrdFeE2ankL0JzEFZHb18zXIE8hDZjPh5/hQfVAeTh3HslWQf0xIqQ3XaEst3q4oB2esx4Bg3Zq+Ji5ifYw9uErmVAAs0ZiwLsBpJwM+1L4fl3e88wq0EjdQ0qcgmyJPJz4pn4wKHdRuMVAaBKeNPKBygohXvCw5qtk3eRwA8UKoHI3/S3wbCISOfkYe78i6+utvKOT9We5SZUi2mi87N0yUXYwVsigQZ8hkBwoNbhxq4o0Dkw0qdngaJQ7LzZsxfxhp2X4CZU5yj7rPpz7E6ldWekTnaCiyFbjSoXH6ztHoWGj//+2gx+wwFd7L0C0=
