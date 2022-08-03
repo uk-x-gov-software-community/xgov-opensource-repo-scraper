@@ -11,6 +11,8 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - uses: actions/setup-node@v3
+      with:
+        node-version-file: '.nvmrc'
     - run: npm install
     - run: node index.js
       env:
