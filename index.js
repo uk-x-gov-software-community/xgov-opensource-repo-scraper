@@ -1,14 +1,15 @@
-"use strict"
-const _ = require('lodash')
-const yaml = require('js-yaml')
-const request = require('request-promise')
-const Octokat = require('octokat')
+"use strict";
+
+import yaml from "js-yaml";
+import Octokat from "octokat";
+import Promise from "bluebird";
+import { writeFileSync } from "fs";
 
 const octo = new Octokat({
   token: process.env.GITHUB_TOKEN,
-})
+});
 
-const formatResult = result => {
+const formatResult = (result) => {
   return {
     owner: result.owner.login,
     name: result.name,
@@ -20,46 +21,46 @@ const formatResult = result => {
     language: result.language,
     forksCount: result.forksCount,
     openIssuesCount: result.openIssuesCount,
-  }
-}
-
-const pushResultsToGithub = (results) => {
-  console.log(`count: ${results.length}`)
-  if (!process.env.GITHUB_REPO) {
-    // if no repo specified just output the results
-    console.log(JSON.stringify(results))
-    return
-  }
-  let repo = octo.repos(process.env.GITHUB_ORG, process.env.GITHUB_REPO)
-  return repo.contents("").fetch({ ref: "gh-pages" })
-    .then(tree => tree.filter(file => file.name === "repos.json")[0])
-    .then(file => file.sha || null)
-    .then(sha => repo.contents('repos.json').add({
-      message: 'Updating repos.json',
-      content: new Buffer(JSON.stringify(results)).toString("base64"),
-      branch: 'gh-pages',
-      sha: sha
-    })
-    )
-}
+  };
+};
 
 const fetchAll = async (org, args) => {
-  let response = await octo.orgs(org).repos.fetch({ per_page: 100 })
-  let aggregate = [response]
+  let response = await octo.orgs(org).repos.fetch({ per_page: 100 });
+  let aggregate = [response];
 
+  console.log(`fetched page 1 for ${org}`);
+  let i = 1;
+  await Promise.delay(50); //slow down to appease github rate limiting
   while (response.nextPage) {
-    console.log(`fetched a page for ${org}`)
-    response = await response.nextPage()
-    aggregate.push(response)
+    i++;
+    response = await response.nextPage();
+    console.log(`fetched page ${i} for ${org}`);
+    await Promise.delay(50); //slow down to appease github rate limiting
+    aggregate.push(response);
   }
-  return aggregate
-}
+  return aggregate;
+};
 
-request('https://raw.githubusercontent.com/github/government.github.com/gh-pages/_data/governments.yml')
-  .then(yaml.safeLoad)
-  // .then(() => ["ukhomeoffice"])
-  .then(fullList => _.concat(fullList['U.K. Councils'], fullList['U.K. Councils'], fullList['U.K. Central']))
-  .map(fetchAll)
-  .then(_.flattenDeep)
-  .map(formatResult)
-  .then(pushResultsToGithub)
+const allDepartments = yaml.safeLoad(
+  await (
+    await fetch(
+      "https://raw.githubusercontent.com/github/government.github.com/gh-pages/_data/governments.yml"
+    )
+  ).text()
+);
+
+const UKDepartments = [].concat(
+  allDepartments["U.K. Councils"],
+  allDepartments["U.K. Central"]
+);
+
+const allReposForAllUKDepartments = await Promise.mapSeries(
+  UKDepartments,
+  fetchAll
+);
+
+const formattedResults = allReposForAllUKDepartments.flat(2).map(formatResult);
+
+console.log("writing results to file");
+writeFileSync("./public/repos.json", JSON.stringify(formattedResults));
+console.log("done");

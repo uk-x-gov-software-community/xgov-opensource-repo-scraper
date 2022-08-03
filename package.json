@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js",
     "lint": "eslint .",
@@ -19,11 +20,9 @@
   },
   "homepage": "https://github.com/UKHomeOffice/xgov-opensource-repo-scraper#readme",
   "dependencies": {
+    "bluebird": "^3.7.2",
     "github": "^14.0.0",
     "js-yaml": "^3.13.1",
-    "lodash": "^4.17.21",
-    "octokat": "^0.4.18",
-    "request": "^2.88.0",
-    "request-promise": "^4.2.2"
+    "octokat": "^0.4.18"
   }
 }

@@ -14,5 +14,10 @@ jobs:
     - run: node index.js
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITHUB_ORG: UKHomeOffice
-        GITHUB_REPO: xgov-opensource-repo-scraper
+    - name: Deploy to GitHub Pages
+      if: github.ref == 'refs/heads/master'
+      uses: crazy-max/ghaction-github-pages@v3
+      with:
+        build_dir: public
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

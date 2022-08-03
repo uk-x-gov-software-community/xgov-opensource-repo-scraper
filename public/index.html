@@ -1,0 +1,105 @@
+<html>
+
+<head>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-127799947-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+
+    gtag('config', 'UA-127799947-1');
+  </script>
+  <title>X-UK-Gov Public Repository Leaderboard</title>
+  <link rel="icon" type="image/x-icon" href="https://assets-cdn.github.com/favicon.ico">
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
+    crossorigin="anonymous">
+  <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-T8Gy5hrqNKT+hzMclPo118YTQO6cYprQmhrYwIiQ/3axmI1hQomh7Ud2hPOy8SP1"
+    crossorigin="anonymous">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.8/angular.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.8/angular-aria.js"></script>
+  <script>
+    var App = angular.module('App', ['ngAria']);
+    App.controller('ReposController', function ($scope, $http) {
+      $http.get('https://raw.githubusercontent.com/UKHomeOffice/xgov-opensource-repo-scraper/gh-pages/repos.json')
+        .then(function (res) {
+          $scope.repos = res.data
+          $scope.sortType = 'stargazersCount'
+          $scope.sortReverse = true
+        })
+    })
+  </script>
+  <style>
+    tr:nth-child(even) {
+      background: #CCC
+    }
+
+    [ng-click],
+    [data-ng-click],
+    [x-ng-click] {
+      cursor: pointer;
+    }
+
+    thead {
+      background: black;
+    }
+
+    thead a {
+      color: white;
+    }
+
+    th,
+    td {
+      padding-right: 1em;
+    }
+
+    .fa-times {
+      color: red;
+    }
+
+    .fa-check {
+      color: green;
+    }
+  </style>
+</head>
+
+<body ng-app="App">
+  <header>
+    <h1>X-UK-Gov Public Repository Leaderboard</h1>
+    <p>This updates every 24 hours, it scrapes github's <a href="https://github.com/github/government.github.com/blob/gh-pages/_data/governments.yml">Official
+        list of govenments</a>then scrape all their repos in turn via the GitHub api. <a href="https://github.com/UKHomeOffice/xgov-opensource-repo-scraper">Pull
+        requests for the code welcome</a></p>
+  </header>
+  <main ng-controller="ReposController">
+    <p ng-if="!repos">LOADING... Page can take a while to render</p>
+    <p ng-if="repos">Currently showing {{repos.length}} repositories</p>
+    <table ng-if="repos">
+      <thead>
+        <th><a ng-click="sortType = 'owner'; sortReverse = !sortReverse">Owner</a></th>
+        <th><a ng-click="sortType = 'name'; sortReverse = !sortReverse">Name</a></th>
+        <th><a ng-click="sortType = 'license'; sortReverse = !sortReverse">License</a></th>
+        <th><a ng-click="sortType = 'archived'; sortReverse = !sortReverse">Archived</a></th>
+        <th><a ng-click="sortType = 'language'; sortReverse = !sortReverse">Language</a></th>
+        <th><a ng-click="sortType = 'stargazersCount'; sortReverse = !sortReverse">Stars</a></th>
+        <th><a ng-click="sortType = 'openIssuesCount'; sortReverse = !sortReverse">Issues</a></th>
+        <th><a ng-click="sortType = 'forksCount'; sortReverse = !forksCount">Forks</a></th>
+      </thead>
+      <tbody>
+        <tr ng-repeat="repo in repos | orderBy:sortType:sortReverse">
+          <td><a ng-href="https://github.com/{{repo.owner}}" ng-bind=repo.owner></a></td>
+          <td><a ng-href="{{repo.url}}" ng-bind="repo.name"></a></td>
+          <td><a ng-if="repo.license && repo.license.name != 'Other'" ng-href="{{repo.license.url}}" ng-bind="repo.license.name"></a>
+            <a ng-if="repo.license && repo.license.name == 'Other'" ng-href="{{repo.url}}/blob/master/LICENSE" ng-bind="repo.license.name"></a>
+            <span ng-if="!repo.license" class="fa fa-times" title="NO"></span>
+          </td>
+          <td><span class="fa" ng-class="repo.archived ? 'fa-check' : 'fa-times'" title="{{repo.archived ? 'YES' : 'NO'}}"></span></td>
+          <td ng-bind=repo.language></td>
+          <td ng-bind="repo.stargazersCount | number"></td>
+          <td ng-bind="repo.openIssuesCount | number"></td>
+          <td ng-bind="repo.forksCount | number"></td>
+        </tr>
+      </tbody>
+    </table>
+  </main>
+</body>
+
+</html>
