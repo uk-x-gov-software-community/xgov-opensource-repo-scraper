@@ -12,7 +12,7 @@ jobs:
     - uses: actions/checkout@v1
     - uses: actions/setup-node@v3
       with:
-        node-version-file: '.nvmrc'
+        node-version-file: '.nvm'
     - run: npm install
     - run: node index.js
       env:
