@@ -49,17 +49,24 @@ const allDepartments = yaml.safeLoad(
   ).text()
 );
 
-const UKDepartments = [].concat(
-  allDepartments["U.K. Councils"],
-  allDepartments["U.K. Central"]
+const HomeOfficeOrgs = [].concat(
+    ["UKHomeOffice"],
+    ["HO-CTO"],
+    ["UKHomeOffice-test"],
+    ["HMPO"],
+    ["Enterprise-functional-tests"],
+    ["UKHomeOffice-attic"],
+    ["technical-docs"],
+    ["HomeOffice-Automation-SSO"],
+    ["UKHomeOfficeForms"],
 );
 
-const allReposForAllUKDepartments = await Promise.mapSeries(
-  UKDepartments,
-  fetchAll
+const allReposForAllHomeOfficeOrgs = await Promise.mapSeries(
+    HomeOfficeOrgs,
+    fetchAll
 );
 
-const formattedResults = allReposForAllUKDepartments.flat(2).map(formatResult);
+const formattedResults = allReposForAllHomeOfficeOrgs.flat(2).map(formatResult);
 
 console.log("writing results to file");
 writeFileSync("./public/repos.json", JSON.stringify(formattedResults));

@@ -1,2 +1,15 @@
 node_modules
 public/repos.json
+
+.DS_Store
+*Gemfile.lock
+
+# Any temporary
+**/.tmp
+
+# IntelliJ IDEA
+.idea
+*.iws
+*.iml
+*.ipr
+/.idea/
