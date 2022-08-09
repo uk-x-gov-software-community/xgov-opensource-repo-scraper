@@ -1,9 +1,6 @@
 name: Publisher
 
-on:
-  push:
-  schedule:
-  - cron: 0 2 * * *
+on: [push,pull_request]
 
 jobs:
   run:
