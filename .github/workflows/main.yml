@@ -3,28 +3,59 @@ name: Publisher
 on:
   push:
   schedule:
-  - cron: 0 2 * * *
+    - cron: 0 2 * * *
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
-  run:
+  build:
     permissions:
-      contents: write
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-    runs-on: ubuntu-latest    
+      contents: read
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
-    - uses: actions/setup-node@v3
-      with:
-        node-version-file: '.nvm'
-    - run: npm install
-    - run: node index.js
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Deploy to GitHub Pages
-      if: github.ref == 'refs/heads/master'
-      uses: crazy-max/ghaction-github-pages@v3
-      with:
-        build_dir: public
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version-file: '.nvm'
+      - run: npm install
+      - run: node index.js
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: tar -cf public.tar ./public
+      - uses: actions/upload-artifact@v3.1.0
+        with:
+          name: public.tar
+          path: public.tar
+
+  publish:
+    if: github.ref == 'refs/heads/master'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    needs:
+      - build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3.0.0
+        with:
+          name: public.tar
+      - run: tar -xf public.tar
+      - uses: actions/configure-pages@v2
+      - uses: actions/upload-pages-artifact@v1
+        with:
+          path: public
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v1
