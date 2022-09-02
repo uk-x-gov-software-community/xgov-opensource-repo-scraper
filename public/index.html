@@ -20,7 +20,7 @@
   <script>
     var App = angular.module('App', ['ngAria']);
     App.controller('ReposController', function ($scope, $http) {
-      $http.get('https://raw.githubusercontent.com/'+window.location.href.substr(8,window.location.href.indexOf('.')-8)+window.location.pathname +'gh-pages/repos.json')
+      $http.get('./repos.json')
         .then(function (res) {
           $scope.repos = res.data
           $scope.sortType = 'stargazersCount'
