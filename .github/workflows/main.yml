@@ -1,7 +1,6 @@
 name: Publisher
 
 on:
-  # Runs on pushes targeting the default branch
   push:
   schedule:
     - cron: 0 2 * * *
