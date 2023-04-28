@@ -70,7 +70,7 @@ const allReposForAllUKDepartments = await Promise.mapSeries(
 );
 
 const fetchAllSboms = async (repo) => {
-  await Promise.delay(250); //slow down to appease github rate limiting
+  await Promise.delay(500); //slow down to appease github rate limiting
   console.log(`Collecting SBOM for ${repo.owner.login}/${repo.name}`);
   try {
     return (
