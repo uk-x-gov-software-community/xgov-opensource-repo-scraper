@@ -27,6 +27,9 @@ jobs:
       - run: node index.js
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: du -hs public/*
+      - run: gzip -9v public/sboms.json
+      - run: du -hs public/*
       - run: tar -cf public.tar ./public
       - uses: actions/upload-artifact@v3.1.0
         with:
