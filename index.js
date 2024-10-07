@@ -131,10 +131,9 @@ async function fetchAll(org) {
       aggregate.push(response);
     }
   } catch (error) {
-    console.error(error);
-    if (error.status != 404) {
-      throw error;
-    }
+    if (error.status === 404) console.log(`${org} has no repos`);
+    else throw error;
+    
   }
   return aggregate;
 }
