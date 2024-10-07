@@ -24,7 +24,7 @@ jobs:
         with:
           node-version-file: '.nvm'
       - run: npm install
-      - run: node index.js
+      - run: node index.js get-all ./public/repos.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: tar -cf public.tar ./public
