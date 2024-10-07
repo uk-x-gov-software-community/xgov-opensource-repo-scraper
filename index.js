@@ -32,6 +32,8 @@ async function getOrgs() {
   );
 }
 
+const slowDownDelay = 5;
+
 async function outputIt(data, outputFile) {
   if (outputFile) {
     writeFileSync(outputFile, JSON.stringify(await data, null, 2));
@@ -95,7 +97,7 @@ function formatRepoResult(result) {
 }
 
 const getSbom = async (repo) => {
-  await Promise.delay(10); //slow down to appease github rate limiting
+  await Promise.delay(slowDownDelay); //slow down to appease github rate limiting
   console.log(`Collecting SBOM for ${repo.owner}/${repo.name}`);
   try {
     return (
@@ -108,9 +110,8 @@ const getSbom = async (repo) => {
       })
     ).data.sbom;
   } catch (e) {
-    if (e.status != 404) {
-      throw e;
-    }
+    if (e.status === 404) console.log(`No SBOM for ${repo.owner}/${repo.name}`);
+    else throw e;
   }
 };
 
@@ -122,18 +123,17 @@ async function fetchAll(org) {
 
     console.log(`fetched page 1 for ${org}`);
     let i = 1;
-    await Promise.delay(50);
+    await Promise.delay(slowDownDelay);
     while (response.nextPage) {
       i++;
       response = await response.nextPage();
       console.log(`fetched page ${i} for ${org}`);
-      await Promise.delay(50);
+      await Promise.delay(slowDownDelay);
       aggregate.push(response);
     }
   } catch (error) {
     if (error.status === 404) console.log(`${org} has no repos`);
     else throw error;
-    
   }
   return aggregate;
 }
