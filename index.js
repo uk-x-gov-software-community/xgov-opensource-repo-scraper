@@ -32,7 +32,7 @@ async function getOrgs() {
   );
 }
 
-const slowDownDelay = 10;
+const slowDownDelay = 50;
 
 async function outputIt(data, outputFile) {
   if (outputFile) {
