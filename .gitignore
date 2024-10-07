@@ -1,2 +1,5 @@
 node_modules
 public/repos.json
+public/sboms.json
+public/sboms.json.gz
+public.tar

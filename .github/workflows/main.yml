@@ -24,9 +24,10 @@ jobs:
         with:
           node-version-file: '.nvm'
       - run: npm install
-      - run: node index.js get-all -w ./public/repos.json
+      - run: npm start get-all -w ./public/repos.json -s ./public/sbom.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: gzip -9v public/sboms.json
       - run: tar -cf public.tar ./public
       - uses: actions/upload-artifact@v3.1.0
         with:

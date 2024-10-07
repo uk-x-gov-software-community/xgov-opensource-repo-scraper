@@ -1,10 +1,20 @@
 "use strict";
 
 import yaml from "js-yaml";
+import { Octokit } from "@octokit/core";
+
 import Octokat from "octokat";
 import Promise from "bluebird";
 import { writeFileSync } from "fs";
 import { Command } from "commander";
+
+const octo = new Octokat({
+  token: process.env.GITHUB_TOKEN,
+});
+
+const octokit = new Octokit({
+  auth: process.env.GITHUB_TOKEN,
+});
 
 const program = new Command();
 
@@ -22,10 +32,6 @@ async function getOrgs() {
   );
 }
 
-const octo = new Octokat({
-  token: process.env.GITHUB_TOKEN,
-});
-
 async function outputIt(data, outputFile) {
   if (outputFile) {
     writeFileSync(outputFile, JSON.stringify(await data, null, 2));
@@ -41,31 +47,38 @@ program
   )
   .option("-w, --write <outputfile>", "Save output to a file")
   .action(async (options) => outputIt(getOrgs(), options.write));
-  
-  program
-    .command("get-repos")
-    .argument("<org>", "The GitHub organisation to get the repos for")
-    .description("Get a list of all the repositories for a given org GitHub")
-    .option("-w, --write <outputfile>", "Save output to a file")
-    .action(async (org, options) => outputIt(getRepos(org), options.write));
-  
-  program
-    .command("get-all")
-    .option("-w, --write <outputfile>", "Save output to a file")
-    .description(
-      "Get consolodated data for all UK Government departments and agencies"
-    )
-    .action(async (options) => {
-      const orgs = await getOrgs();
-      let allRepos = [];
-      for (const org of orgs) {
-        const repos = await getRepos(org);
-        allRepos = allRepos.concat(repos);
-      }
-      return outputIt(allRepos, options.write);
-    });
 
-program.parse();
+program
+  .command("get-repos")
+  .argument("<org>", "The GitHub organisation to get the repos for")
+  .description("Get a list of all the repositories for a given org GitHub")
+  .option("-w, --write <outputfile>", "Save output to a file")
+  .action(async (org, options) => outputIt(getRepos(org), options.write));
+
+program
+  .command("get-all")
+  .option("-w, --write <outputfile>", "Save output to a file")
+  .option("-s, --sbom <outputfile>", "Save sboms to a file")
+  .description(
+    "Get consolodated data for all UK Government departments and agencies"
+  )
+  .action(async (options) => {
+    const orgs = await getOrgs();
+    let allRepos = [];
+    for (const org of orgs) {
+      const repos = await getRepos(org);
+      allRepos = allRepos.concat(repos);
+    }
+    if (options.sbom) {
+      const sboms = [];
+      for (const repo of allRepos) {
+        const sbom = await getSbom(repo);
+        if (sbom) sboms.push(sbom);
+      }
+      outputIt(sboms, options.sbom);
+    }
+    return outputIt(allRepos, options.write);
+  });
 
 function formatRepoResult(result) {
   return {
@@ -80,6 +93,26 @@ function formatRepoResult(result) {
     openIssuesCount: result.openIssuesCount,
   };
 }
+
+const getSbom = async (repo) => {
+  await Promise.delay(10); //slow down to appease github rate limiting
+  console.log(`Collecting SBOM for ${repo.owner}/${repo.name}`);
+  try {
+    return (
+      await octokit.request("GET /repos/{owner}/{repo}/dependency-graph/sbom", {
+        owner: repo.owner,
+        repo: repo.name,
+        headers: {
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+      })
+    ).data.sbom;
+  } catch (e) {
+    if (e.status != 404) {
+      throw e;
+    }
+  }
+};
 
 async function fetchAll(org) {
   let aggregate = [];
@@ -109,3 +142,15 @@ async function fetchAll(org) {
 async function getRepos(org) {
   return (await fetchAll(org)).flat().map(formatRepoResult);
 }
+
+program
+  .command("get-sbom")
+  .argument("<org>", "The GitHub organisation")
+  .argument("<repo>", "The repository")
+  .option("-w, --write <outputfile>", "Save output to a file")
+  .description("Get the SBOM for a repo")
+  .action(async (org, repo, options) =>
+    outputIt(await getSbom({ owner: org, name: repo }), options.sbom)
+  );
+
+program.parse();
