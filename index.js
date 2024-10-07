@@ -41,25 +41,26 @@ program
   )
   .option("-w, --write <outputfile>", "Save output to a file")
   .action(async (options) => outputIt(getOrgs(), options.write));
-
-program
-  .command("get-repos")
-  .argument("<org>", "The GitHub organisation to get the repos for")
-  .description("Get a list of all the repositories for a given org GitHub")
-  .option("-w, --write <outputfile>", "Save output to a file")
-  .action(async (org, options) => outputIt(getRepos(org), options.write));
-
-program
-  .command("get-all")
-  .description(
-    "Get consolodated data for all UK Government departments and agencies"
-  )
-  .action(async (options) =>
-    outputIt(
-      (await Promise.all(await getOrgs()).map(await getRepos)).flat(),
-      options.write
+  
+  program
+    .command("get-repos")
+    .argument("<org>", "The GitHub organisation to get the repos for")
+    .description("Get a list of all the repositories for a given org GitHub")
+    .option("-w, --write <outputfile>", "Save output to a file")
+    .action(async (org, options) => outputIt(getRepos(org), options.write));
+  
+  program
+    .command("get-all")
+    .option("-w, --write <outputfile>", "Save output to a file")
+    .description(
+      "Get consolodated data for all UK Government departments and agencies"
     )
-  );
+    .action(async (options) =>
+      outputIt(
+        (await Promise.all(await getOrgs()).map(await getRepos)).flat(),
+        options.write
+      )
+    );
 
 program.parse();
 
