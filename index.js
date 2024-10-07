@@ -156,7 +156,10 @@ async function fetchAll(org) {
 }
 
 async function getRepos(org) {
-  return (await fetchAll(org)).flat().map(formatRepoResult);
+  return (await fetchAll(org))
+    .flat()
+    .filter((repo) => repo.visibility === "public")
+    .map(formatRepoResult);
 }
 
 program
