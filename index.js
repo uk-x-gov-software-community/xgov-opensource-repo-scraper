@@ -99,19 +99,36 @@ function formatRepoResult(result) {
 const getSbom = async (repo) => {
   await Promise.delay(slowDownDelay); //slow down to appease github rate limiting
   console.log(`Collecting SBOM for ${repo.owner}/${repo.name}`);
-  try {
-    return (
-      await octokit.request("GET /repos/{owner}/{repo}/dependency-graph/sbom", {
-        owner: repo.owner,
-        repo: repo.name,
-        headers: {
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      })
-    ).data.sbom;
-  } catch (e) {
-    if (e.status === 404) console.log(`No SBOM for ${repo.owner}/${repo.name}`);
-    else throw e;
+  let attempts = 0;
+  while (attempts < 3) {
+    try {
+      return (
+        await octokit.request(
+          "GET /repos/{owner}/{repo}/dependency-graph/sbom",
+          {
+            owner: repo.owner,
+            repo: repo.name,
+            headers: {
+              "X-GitHub-Api-Version": "2022-11-28",
+            },
+          }
+        )
+      ).data.sbom;
+    } catch (e) {
+      if (e.status === 404) {
+        console.log(`No SBOM for ${repo.owner}/${repo.name}`);
+        return null;
+      }
+      attempts++;
+      if (attempts === 3) {
+        console.error(
+          `Failed to fetch SBOM for ${repo.owner}/${repo.name} after 3 attempts`
+        );
+        throw e;
+      }
+      console.log(`Attempt ${attempts} failed, retrying...`);
+      await Promise.delay(slowDownDelay * 2); // Increase delay between retries
+    }
   }
 };
 
