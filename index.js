@@ -55,12 +55,15 @@ program
     .description(
       "Get consolodated data for all UK Government departments and agencies"
     )
-    .action(async (options) =>
-      outputIt(
-        (await Promise.all(await getOrgs()).map(await getRepos)).flat(),
-        options.write
-      )
-    );
+    .action(async (options) => {
+      const orgs = await getOrgs();
+      let allRepos = [];
+      for (const org of orgs) {
+        const repos = await getRepos(org);
+        allRepos = allRepos.concat(repos);
+      }
+      return outputIt(allRepos, options.write);
+    });
 
 program.parse();
 
