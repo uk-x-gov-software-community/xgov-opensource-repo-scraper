@@ -96,6 +96,9 @@ async function fetchAll(org) {
     }
   } catch (error) {
     console.error(error);
+    if (error.status != 404) {
+      throw error;
+    }
   }
   return aggregate;
 }
