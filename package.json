@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/UKHomeOffice/xgov-opensource-repo-scraper#readme",
   "dependencies": {
+    "@octokit/core": "^6.1.2",
     "bluebird": "^3.7.2",
     "commander": "^12.1.0",
     "github": "^14.0.0",
