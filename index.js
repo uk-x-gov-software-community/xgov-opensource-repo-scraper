@@ -16,9 +16,17 @@ async function getOrgs() {
       )
     ).text()
   );
+  const researchDepts = yaml.safeLoad(
+    await (
+      await fetch(
+        "https://raw.githubusercontent.com/github/government.github.com/gh-pages/_data/research.yml"
+      )
+    ).text()
+  );
   return [].concat(
     allDepartments["U.K. Councils"],
-    allDepartments["U.K. Central"]
+    allDepartments["U.K. Central"],
+    researchDepts["U.K"]
   );
 }
 
