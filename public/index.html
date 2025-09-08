@@ -82,6 +82,9 @@
         <th><a ng-click="sortType = 'stargazersCount'; sortReverse = !sortReverse">Stars</a></th>
         <th><a ng-click="sortType = 'openIssuesCount'; sortReverse = !sortReverse">Issues</a></th>
         <th><a ng-click="sortType = 'forksCount'; sortReverse = !forksCount">Forks</a></th>
+        <th><a ng-click="sortType = 'createdAt'; sortReverse = !createdAt">Created At</a></th>
+        <th><a ng-click="sortType = 'updatedAt'; sortReverse = !updatedAt">Updated At</a></th>
+        <th><a ng-click="sortType = 'pushedAt'; sortReverse = !pushedAt">Last Pushed</a></th>
       </thead>
       <tbody>
         <tr ng-repeat="repo in repos | orderBy:sortType:sortReverse">
@@ -96,6 +99,9 @@
           <td ng-bind="repo.stargazersCount | number"></td>
           <td ng-bind="repo.openIssuesCount | number"></td>
           <td ng-bind="repo.forksCount | number"></td>
+          <td ng-bind="repo.createdAt | date"></td>
+          <td ng-bind="repo.updatedAt | date"></td>
+          <td ng-bind="repo.pushedAt | date"></td>
         </tr>
       </tbody>
     </table>

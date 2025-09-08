@@ -49,29 +49,29 @@ program
   )
   .option("-w, --write <outputfile>", "Save output to a file")
   .action(async (options) => outputIt(getOrgs(), options.write));
-  
-  program
-    .command("get-repos")
-    .argument("<org>", "The GitHub organisation to get the repos for")
-    .description("Get a list of all the repositories for a given org GitHub")
-    .option("-w, --write <outputfile>", "Save output to a file")
-    .action(async (org, options) => outputIt(getRepos(org), options.write));
-  
-  program
-    .command("get-all")
-    .option("-w, --write <outputfile>", "Save output to a file")
-    .description(
-      "Get consolodated data for all UK Government departments and agencies"
-    )
-    .action(async (options) => {
-      const orgs = await getOrgs();
-      let allRepos = [];
-      for (const org of orgs) {
-        const repos = await getRepos(org);
-        allRepos = allRepos.concat(repos);
-      }
-      return outputIt(allRepos, options.write);
-    });
+
+program
+  .command("get-repos")
+  .argument("<org>", "The GitHub organisation to get the repos for")
+  .description("Get a list of all the repositories for a given org GitHub")
+  .option("-w, --write <outputfile>", "Save output to a file")
+  .action(async (org, options) => outputIt(getRepos(org), options.write));
+
+program
+  .command("get-all")
+  .option("-w, --write <outputfile>", "Save output to a file")
+  .description(
+    "Get consolodated data for all UK Government departments and agencies"
+  )
+  .action(async (options) => {
+    const orgs = await getOrgs();
+    let allRepos = [];
+    for (const org of orgs) {
+      const repos = await getRepos(org);
+      allRepos = allRepos.concat(repos);
+    }
+    return outputIt(allRepos, options.write);
+  });
 
 program.parse();
 
@@ -86,6 +86,9 @@ function formatRepoResult(result) {
     language: result.language,
     forksCount: result.forksCount,
     openIssuesCount: result.openIssuesCount,
+    createdAt: result.createdAt,
+    updatedAt: result.updatedAt,
+    pushedAt: result.pushedAt,
   };
 }
 
