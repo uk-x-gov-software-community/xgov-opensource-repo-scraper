@@ -24,6 +24,7 @@ jobs:
         with:
           node-version-file: '.nvm'
       - run: npm install
+      - run: npm test
       - run: |
           for i in {1..3}; do
             node index.js get-all -w ./public/repos.json && break
