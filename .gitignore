@@ -1,2 +1,6 @@
 node_modules
 public/repos.json
+.claude
+openspec
+AGENTS.md
+CLAUDE.md
