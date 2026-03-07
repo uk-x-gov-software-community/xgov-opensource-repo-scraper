@@ -2,8 +2,9 @@ name: Publisher
 
 on:
   push:
+    branches: [master]
   schedule:
-    - cron: 0 2 * * *
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 permissions:
@@ -19,21 +20,45 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.2.2
-      - uses: actions/setup-node@v4.1.0
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version-file: '.nvm'
-      - run: npm install
+          cache: 'npm'
+
+      - run: npm ci
       - run: npm test
-      - run: |
-          for i in {1..3}; do
-            node index.js get-all -w ./public/repos.json && break
-            if [ $i -eq 3 ]; then exit 1; fi
+
+      # Restore ETag cache from previous runs (this is the big perf win)
+      - uses: actions/cache@v4
+        with:
+          path: .cache
+          key: scraper-cache-${{ github.run_id }}
+          restore-keys: |
+            scraper-cache-
+
+      # Run the scraper with timing, SBOM generation, and ETag caching
+      - name: Scrape repositories
+        run: |
+          START=$(date +%s)
+          for i in 1 2 3; do
+            echo "Attempt $i/3..."
+            node index.js get-all -w ./public/repos.json --sbom ./public/sbom.json --concurrency 10 && break
+            if [ "$i" -eq 3 ]; then echo "All attempts failed"; exit 1; fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
           done
+          END=$(date +%s)
+          echo "Scraper completed in $((END - START)) seconds"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Generate self-SBOM for the project's own dependencies
+      - name: Generate project SBOM
+        run: npx @cyclonedx/cyclonedx-npm --spec-version 1.6 --output-format JSON --omit dev -o ./public/project-sbom.json
+
       - run: tar -cf public.tar ./public
-      - uses: actions/upload-artifact@v4.4.3
+      - uses: actions/upload-artifact@v4
         with:
           name: public.tar
           path: public.tar
@@ -44,21 +69,20 @@ jobs:
       contents: read
       pages: write
       id-token: write
-    needs:
-      - build
+    needs: [build]
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4.1.8
+      - uses: actions/download-artifact@v4
         with:
           name: public.tar
       - run: tar -xf public.tar
-      - uses: actions/configure-pages@v5.0.0
-      - uses: actions/upload-pages-artifact@v3.0.1
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: public
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4.0.5
+        uses: actions/deploy-pages@v4

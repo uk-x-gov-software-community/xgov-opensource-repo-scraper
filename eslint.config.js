@@ -3,12 +3,12 @@ import globals from "globals";
 
 export default [
   {
-    ignores: ["node_modules/**", "public/**"],
+    ignores: ["node_modules/**", "public/**", ".claude/**", ".cache/**"],
   },
   js.configs.recommended,
   {
     languageOptions: {
-      ecmaVersion: 2022,
+      ecmaVersion: 2024,
       sourceType: "module",
       globals: {
         ...globals.node,

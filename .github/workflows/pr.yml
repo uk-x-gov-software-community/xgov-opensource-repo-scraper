@@ -1,0 +1,23 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvm'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test
+      # Dry-run: verify CLI works without full scrape
+      - name: Verify CLI
+        run: node index.js get-orgs | head -5

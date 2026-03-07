@@ -4,3 +4,4 @@ public/repos.json
 openspec
 AGENTS.md
 CLAUDE.md
+.cache/

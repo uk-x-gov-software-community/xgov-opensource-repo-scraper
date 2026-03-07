@@ -1,111 +1,1135 @@
-<html>
-
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-127799947-1"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() { dataLayer.push(arguments); }
-    gtag('js', new Date());
-
-    gtag('config', 'UA-127799947-1');
-  </script>
-  <title>X-UK-Gov Public Repository Leaderboard</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UK Government Open Source Repositories</title>
   <link rel="icon" type="image/x-icon" href="https://assets-cdn.github.com/favicon.ico">
-  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
-    crossorigin="anonymous">
-  <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-T8Gy5hrqNKT+hzMclPo118YTQO6cYprQmhrYwIiQ/3axmI1hQomh7Ud2hPOy8SP1"
-    crossorigin="anonymous">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.8/angular.min.js"></script>
-  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.8/angular-aria.js"></script>
-  <script>
-    var App = angular.module('App', ['ngAria']);
-    App.controller('ReposController', function ($scope, $http) {
-      $http.get('./repos.json')
-        .then(function (res) {
-          $scope.repos = res.data
-          $scope.sortType = 'stargazersCount'
-          $scope.sortReverse = true
-        })
-    })
-  </script>
   <style>
-    tr:nth-child(even) {
-      background: #CCC
+    /* ===== Custom Properties ===== */
+    :root {
+      --color-brand: #1d70b8;
+      --color-brand-dark: #003078;
+      --color-brand-light: #5694ca;
+      --color-black: #0b0c0c;
+      --color-dark-grey: #505a5f;
+      --color-mid-grey: #b1b4b6;
+      --color-light-grey: #f3f2f1;
+      --color-white: #ffffff;
+      --color-focus: #fd0;
+      --color-link: #1d70b8;
+      --color-link-hover: #003078;
+      --color-link-visited: #4c2c92;
+      --color-success: #00703c;
+      --color-error: #d4351c;
+      --color-row-hover: #e8f0fe;
+      --color-row-stripe: #f8f8f8;
+      --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+      --max-width: 1200px;
+      --header-height: auto;
     }
 
-    [ng-click],
-    [data-ng-click],
-    [x-ng-click] {
+    /* ===== Reset ===== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-stack);
+      font-size: 16px;
+      line-height: 1.5;
+      color: var(--color-black);
+      background: var(--color-white);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ===== Skip Link ===== */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 0;
+      z-index: 1000;
+      padding: 0.5rem 1rem;
+      background: var(--color-focus);
+      color: var(--color-black);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .skip-link:focus {
+      top: 0;
+      outline: 3px solid var(--color-focus);
+      outline-offset: 0;
+    }
+
+    /* ===== Header ===== */
+    .govuk-header {
+      background: var(--color-black);
+      color: var(--color-white);
+      padding: 1rem 0;
+      border-bottom: 10px solid var(--color-brand);
+    }
+
+    .govuk-header__container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .govuk-header__crown {
+      flex-shrink: 0;
+      width: 36px;
+      height: 32px;
+    }
+
+    .govuk-header__title {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    @media (max-width: 640px) {
+      .govuk-header__title {
+        font-size: 1.125rem;
+      }
+    }
+
+    /* ===== Main Content ===== */
+    .govuk-main {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 1.5rem 1rem 3rem;
+    }
+
+    .govuk-main:focus {
+      outline: none;
+    }
+
+    /* ===== Description ===== */
+    .description {
+      margin-bottom: 1.5rem;
+      color: var(--color-dark-grey);
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    .description a {
+      color: var(--color-link);
+      text-decoration: underline;
+    }
+
+    .description a:hover {
+      color: var(--color-link-hover);
+    }
+
+    .description a:focus {
+      outline: 3px solid var(--color-focus);
+      outline-offset: 0;
+      background: var(--color-focus);
+      color: var(--color-black);
+      text-decoration: none;
+    }
+
+    .description a:visited {
+      color: var(--color-link-visited);
+    }
+
+    /* ===== Stats Bar ===== */
+    .stats-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background: var(--color-light-grey);
+      border-left: 4px solid var(--color-brand);
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      min-width: 120px;
+    }
+
+    .stat__value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--color-brand-dark);
+      line-height: 1.2;
+    }
+
+    .stat__label {
+      font-size: 0.8125rem;
+      color: var(--color-dark-grey);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ===== Controls ===== */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-end;
+      margin-bottom: 1rem;
+    }
+
+    .search-group {
+      flex: 1;
+      min-width: 200px;
+      max-width: 400px;
+    }
+
+    .search-group label {
+      display: block;
+      font-weight: 700;
+      font-size: 0.875rem;
+      margin-bottom: 0.25rem;
+      color: var(--color-black);
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      font-size: 1rem;
+      font-family: var(--font-stack);
+      border: 2px solid var(--color-black);
+      border-radius: 0;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .search-input:focus {
+      outline: 3px solid var(--color-focus);
+      outline-offset: 0;
+      border-color: var(--color-black);
+    }
+
+    .page-size-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .page-size-group label {
+      font-weight: 700;
+      font-size: 0.875rem;
+      color: var(--color-black);
+      white-space: nowrap;
+    }
+
+    .page-size-select {
+      padding: 0.5rem 0.75rem;
+      font-size: 1rem;
+      font-family: var(--font-stack);
+      border: 2px solid var(--color-black);
+      border-radius: 0;
+      background: var(--color-white);
+    }
+
+    .page-size-select:focus {
+      outline: 3px solid var(--color-focus);
+      outline-offset: 0;
+    }
+
+    /* ===== Filter Info ===== */
+    .filter-info {
+      font-size: 0.875rem;
+      color: var(--color-dark-grey);
+      margin-bottom: 0.75rem;
+    }
+
+    /* ===== Table ===== */
+    .table-container {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-bottom: 1rem;
+    }
+
+    .repo-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    .repo-table caption {
+      text-align: left;
+      font-weight: 700;
+      font-size: 1.125rem;
+      padding: 0.75rem 0;
+      caption-side: top;
+    }
+
+    .repo-table thead {
+      background: var(--color-black);
+    }
+
+    .repo-table thead th {
+      color: var(--color-white);
+      font-weight: 600;
+      text-align: left;
+      padding: 0.625rem 0.75rem;
+      white-space: nowrap;
+      border-bottom: 2px solid var(--color-brand);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--color-black);
+    }
+
+    .repo-table thead th[aria-sort] {
       cursor: pointer;
+      user-select: none;
+      padding-right: 1.5rem;
+      position: relative;
     }
 
-    thead {
-      background: black;
+    .repo-table thead th[aria-sort]:hover {
+      background: #222;
     }
 
-    thead a {
-      color: white;
+    .repo-table thead th[aria-sort]:focus-visible {
+      outline: 3px solid var(--color-focus);
+      outline-offset: -3px;
     }
 
-    th,
-    td {
-      padding-right: 1em;
+    /* Sort indicators */
+    .repo-table thead th[aria-sort]::after {
+      content: "";
+      position: absolute;
+      right: 0.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.75rem;
+      opacity: 0.4;
     }
 
-    .fa-times {
-      color: red;
+    .repo-table thead th[aria-sort="none"]::after {
+      content: "\2195"; /* up-down arrow */
     }
 
-    .fa-check {
-      color: green;
+    .repo-table thead th[aria-sort="ascending"]::after {
+      content: "\2191"; /* up arrow */
+      opacity: 1;
+    }
+
+    .repo-table thead th[aria-sort="descending"]::after {
+      content: "\2193"; /* down arrow */
+      opacity: 1;
+    }
+
+    .repo-table tbody tr {
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .repo-table tbody tr:nth-child(even) {
+      background: var(--color-row-stripe);
+    }
+
+    .repo-table tbody tr:hover {
+      background: var(--color-row-hover);
+    }
+
+    .repo-table td {
+      padding: 0.5rem 0.75rem;
+      vertical-align: top;
+    }
+
+    .repo-table td.numeric {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .repo-table a {
+      color: var(--color-link);
+      text-decoration: underline;
+    }
+
+    .repo-table a:hover {
+      color: var(--color-link-hover);
+    }
+
+    .repo-table a:focus {
+      outline: 3px solid var(--color-focus);
+      outline-offset: 0;
+      background: var(--color-focus);
+      color: var(--color-black);
+    }
+
+    .repo-table a:visited {
+      color: var(--color-link-visited);
+    }
+
+    /* Boolean indicators */
+    .indicator-yes {
+      color: var(--color-success);
+      font-weight: 700;
+    }
+
+    .indicator-no {
+      color: var(--color-error);
+      font-weight: 700;
+    }
+
+    .indicator-none {
+      color: var(--color-mid-grey);
+    }
+
+    /* ===== Pagination ===== */
+    .pagination {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      padding: 1rem 0;
+    }
+
+    .pagination__info {
+      font-size: 0.875rem;
+      color: var(--color-dark-grey);
+    }
+
+    .pagination__controls {
+      display: flex;
+      gap: 0.25rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .pagination__btn {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.875rem;
+      font-family: var(--font-stack);
+      background: var(--color-white);
+      color: var(--color-link);
+      border: 1px solid var(--color-mid-grey);
+      cursor: pointer;
+      text-decoration: underline;
+      min-width: 2.5rem;
+      text-align: center;
+    }
+
+    .pagination__btn:hover {
+      background: var(--color-light-grey);
+      color: var(--color-link-hover);
+    }
+
+    .pagination__btn:focus {
+      outline: 3px solid var(--color-focus);
+      outline-offset: 0;
+      background: var(--color-focus);
+      color: var(--color-black);
+    }
+
+    .pagination__btn[aria-current="page"] {
+      background: var(--color-brand);
+      color: var(--color-white);
+      border-color: var(--color-brand);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .pagination__btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      text-decoration: none;
+    }
+
+    /* ===== Loading ===== */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1rem;
+      gap: 1rem;
+      color: var(--color-dark-grey);
+    }
+
+    .loading__spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--color-mid-grey);
+      border-top-color: var(--color-brand);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error-message {
+      padding: 1rem;
+      background: #fef7f7;
+      border-left: 4px solid var(--color-error);
+      color: var(--color-error);
+      font-weight: 700;
+    }
+
+    /* ===== Footer ===== */
+    .govuk-footer {
+      background: var(--color-light-grey);
+      border-top: 1px solid var(--color-mid-grey);
+      padding: 1.5rem 0;
+      margin-top: 2rem;
+      font-size: 0.8125rem;
+      color: var(--color-dark-grey);
+    }
+
+    .govuk-footer__container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 1rem;
+    }
+
+    .govuk-footer a {
+      color: var(--color-link);
+    }
+
+    .govuk-footer a:focus {
+      outline: 3px solid var(--color-focus);
+      background: var(--color-focus);
+      color: var(--color-black);
+    }
+
+    /* ===== Screen reader only ===== */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* ===== Live region ===== */
+    .live-region {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 768px) {
+      .stats-bar {
+        gap: 0.75rem;
+      }
+
+      .stat__value {
+        font-size: 1.25rem;
+      }
+
+      .controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .search-group {
+        max-width: none;
+      }
+
+      .repo-table {
+        font-size: 0.8125rem;
+      }
+
+      .repo-table thead th,
+      .repo-table td {
+        padding: 0.375rem 0.5rem;
+      }
+
+      .pagination {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+
+    /* ===== Print ===== */
+    @media print {
+      .govuk-header { border-bottom-width: 2px; }
+      .controls, .pagination, .skip-link { display: none; }
+      .repo-table tbody tr:nth-child(even) { background: #eee !important; }
+      .repo-table a { color: #000; }
     }
   </style>
 </head>
+<body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
 
-<body ng-app="App">
-  <header>
-    <h1>X-UK-Gov Public Repository Leaderboard</h1>
-    <p>This updates every 24 hours, it scrapes github's <a href="https://github.com/github/government.github.com/blob/gh-pages/_data/governments.yml">Official
-        list of govenments</a>then scrape all their repos in turn via the GitHub api. <a href="https://github.com/UKHomeOffice/xgov-opensource-repo-scraper">Pull
-        requests for the code welcome</a></p>
+  <header class="govuk-header" role="banner">
+    <div class="govuk-header__container">
+      <svg class="govuk-header__crown" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 97" fill="white" aria-hidden="true" focusable="false">
+        <path d="M25 30.2c3.5 1.5 7.7-.2 9.1-3.7 1.5-3.6-.2-7.8-3.9-9.2-3.6-1.4-7.6.3-9.1 3.9-1.4 3.5.3 7.5 3.9 9zM9 39.5c3.6 1.5 7.8-.2 9.2-3.7 1.5-3.6-.2-7.8-3.9-9.1-3.6-1.5-7.6.2-9.1 3.8-1.4 3.5.3 7.5 3.8 9zM4.4 57.2c3.5 1.5 7.7-.2 9.1-3.8 1.5-3.6-.2-7.7-3.9-9.1-3.5-1.5-7.6.3-9.1 3.8-1.4 3.5.3 7.6 3.9 9.1zm38.3-21.4c3.5 1.5 7.7-.2 9.1-3.8 1.5-3.6-.2-7.7-3.9-9.1-3.6-1.5-7.6.3-9.1 3.8-1.3 3.6.4 7.7 3.9 9.1zm64.4-5.6c-3.6 1.5-7.8-.2-9.1-3.7-1.5-3.6.2-7.8 3.8-9.2 3.6-1.4 7.7.3 9.2 3.9 1.3 3.5-.4 7.5-3.9 9zm15.9 9.3c-3.6 1.5-7.7-.2-9.1-3.7-1.5-3.6.2-7.8 3.7-9.1 3.6-1.5 7.7.2 9.2 3.8 1.5 3.5-.3 7.5-3.8 9zm4.7 17.7c-3.6 1.5-7.8-.2-9.2-3.8-1.5-3.6.2-7.7 3.9-9.1 3.6-1.5 7.7.3 9.2 3.8 1.3 3.5-.4 7.6-3.9 9.1zM89.3 35.8c-3.6 1.5-7.8-.2-9.2-3.8-1.4-3.6.2-7.7 3.9-9.1 3.6-1.5 7.7.3 9.2 3.8 1.4 3.6-.3 7.7-3.9 9.1zM69.7 17.7l8.9 4.7V9.3l-8.9 2.8c-.2-.3-.5-.6-.9-.9L72.4 0H59.6l3.5 11.2c-.3.3-.6.5-.9.9l-8.8-2.8v13.1l8.8-4.7c.3.3.6.7.9.9l-5 15.4v.1c-.2.8-.4 1.6-.4 2.4 0 4.1 3.1 7.5 7 8.1h.2c.3 0 .7.1 1 .1.4 0 .7 0 1-.1h.2c4-.6 7.1-4 7.1-8.1 0-.8-.1-1.7-.4-2.4V34l-5.1-15.4c.4-.2.7-.6 1-.9zM66 92.8c16.9 0 32.8 1.1 47.1 3.2 4-16.9 8.9-26.7 14-33.5l-9.6-3.4c1 4.9 1.1 7.2 0 10.2-1.5-1.4-3-4.3-4.2-8.7L108.6 76c2.8-2 5-3.2 7.5-3.3-4.4 9.4-10 11.9-13.6 11.2-4.3-.8-6.3-4.6-5.6-7.9 1-4.7 5.7-5.9 8-.5 4.3-8.7-3-11.4-7.6-8.8 7.1-7.2 7.9-13.5 2.1-21.1-8 6.1-8.1 12.3-4.5 20.8-4.7-5.4-12.1-2.5-9.5 6.2 3.4-5.2 7.9-2 7.2 3.1-.6 4.3-6.4 7.8-13.5 7.2-10.3-.9-10.9-8-11.2-13.8 2.5-.5 7.1 1.8 11 7.3L80.2 60c-4.1 4.4-8 5.3-12.3 5.4 1.4-4.4 8-11.3 8-11.3H55.5s6.4 6.9 7.9 11.3c-4.2-.1-8-1-12.3-5.4l1.4 16.4c3.9-5.5 8.5-7.7 10.9-7.3-.3 5.8-.9 12.8-11.1 13.8-7.2.6-12.9-2.9-13.5-7.2-.7-5 3.8-8.3 7.1-3.1 2.7-8.7-4.6-11.6-9.4-6.2 3.7-8.5 3.6-14.7-4.6-20.8-5.8 7.6-5 13.9 2.2 21.1-4.7-2.6-11.9.1-7.7 8.8 2.3-5.5 7.1-4.2 8.1.5.7 3.3-1.3 7.1-5.7 7.9-3.5.7-9-1.8-13.5-11.2 2.5.1 4.7 1.3 7.5 3.3l-4.7-15.4c-1.2 4.4-2.7 7.2-4.3 8.7-1.1-3-.9-5.3 0-10.2l-9.5 3.4c5 6.9 9.9 16.7 14 33.5 14.8-2.1 30.8-3.2 47.7-3.2z"/>
+      </svg>
+      <h1 class="govuk-header__title">UK Government Open Source Repositories</h1>
+    </div>
   </header>
-  <main ng-controller="ReposController">
-    <p ng-if="!repos">LOADING... Page can take a while to render</p>
-    <p ng-if="repos">Currently showing {{repos.length}} repositories</p>
-    <table ng-if="repos">
-      <thead>
-        <th><a ng-click="sortType = 'owner'; sortReverse = !sortReverse">Owner</a></th>
-        <th><a ng-click="sortType = 'name'; sortReverse = !sortReverse">Name</a></th>
-        <th><a ng-click="sortType = 'license'; sortReverse = !sortReverse">License</a></th>
-        <th><a ng-click="sortType = 'archived'; sortReverse = !sortReverse">Archived</a></th>
-        <th><a ng-click="sortType = 'language'; sortReverse = !sortReverse">Language</a></th>
-        <th><a ng-click="sortType = 'stargazersCount'; sortReverse = !sortReverse">Stars</a></th>
-        <th><a ng-click="sortType = 'openIssuesCount'; sortReverse = !sortReverse">Issues</a></th>
-        <th><a ng-click="sortType = 'forksCount'; sortReverse = !forksCount">Forks</a></th>
-        <th><a ng-click="sortType = 'createdAt'; sortReverse = !createdAt">Created At</a></th>
-        <th><a ng-click="sortType = 'updatedAt'; sortReverse = !updatedAt">Updated At</a></th>
-        <th><a ng-click="sortType = 'pushedAt'; sortReverse = !pushedAt">Last Pushed</a></th>
-      </thead>
-      <tbody>
-        <tr ng-repeat="repo in repos | orderBy:sortType:sortReverse">
-          <td><a ng-href="https://github.com/{{repo.owner}}" ng-bind=repo.owner></a></td>
-          <td><a ng-href="{{repo.url}}" ng-bind="repo.name"></a></td>
-          <td><a ng-if="repo.license && repo.license.name != 'Other'" ng-href="{{repo.license.url}}" ng-bind="repo.license.name"></a>
-            <a ng-if="repo.license && repo.license.name == 'Other'" ng-href="{{repo.url}}/blob/master/LICENSE" ng-bind="repo.license.name"></a>
-            <span ng-if="!repo.license" class="fa fa-times" title="NO"></span>
-          </td>
-          <td><span class="fa" ng-class="repo.archived ? 'fa-check' : 'fa-times'" title="{{repo.archived ? 'YES' : 'NO'}}"></span></td>
-          <td ng-bind=repo.language></td>
-          <td ng-bind="repo.stargazersCount | number"></td>
-          <td ng-bind="repo.openIssuesCount | number"></td>
-          <td ng-bind="repo.forksCount | number"></td>
-          <td ng-bind="repo.createdAt | date"></td>
-          <td ng-bind="repo.updatedAt | date"></td>
-          <td ng-bind="repo.pushedAt | date"></td>
-        </tr>
-      </tbody>
-    </table>
-  </main>
-</body>
 
+  <main id="main-content" class="govuk-main" role="main" tabindex="-1">
+    <div class="description">
+      <p>
+        A leaderboard of public repositories from UK government organisations on GitHub.
+        Updated every 24 hours by scraping GitHub's
+        <a href="https://github.com/github/government.github.com/blob/gh-pages/_data/governments.yml">official list of governments</a>,
+        then fetching all their repositories via the GitHub API.
+        <a href="https://github.com/UKHomeOffice/xgov-opensource-repo-scraper">Pull requests welcome</a>.
+      </p>
+    </div>
+
+    <div id="stats-bar" class="stats-bar" hidden>
+      <div class="stat">
+        <span class="stat__value" id="stat-repos">--</span>
+        <span class="stat__label">Repositories</span>
+      </div>
+      <div class="stat">
+        <span class="stat__value" id="stat-orgs">--</span>
+        <span class="stat__label">Organisations</span>
+      </div>
+      <div class="stat">
+        <span class="stat__value" id="stat-languages">--</span>
+        <span class="stat__label">Languages</span>
+      </div>
+      <div class="stat">
+        <span class="stat__value" id="stat-stars">--</span>
+        <span class="stat__label">Total Stars</span>
+      </div>
+    </div>
+
+    <div id="controls" class="controls" hidden>
+      <div class="search-group">
+        <label for="search-input">Search repositories</label>
+        <input
+          type="search"
+          id="search-input"
+          class="search-input"
+          placeholder="Filter by name, owner, or language..."
+          autocomplete="off"
+          spellcheck="false"
+        >
+      </div>
+      <div class="page-size-group">
+        <label for="page-size">Rows per page</label>
+        <select id="page-size" class="page-size-select">
+          <option value="50">50</option>
+          <option value="100" selected>100</option>
+          <option value="250">250</option>
+          <option value="500">500</option>
+          <option value="all">All</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="filter-info" class="filter-info" aria-live="polite" hidden></div>
+
+    <div id="loading" class="loading">
+      <div class="loading__spinner" role="status">
+        <span class="sr-only">Loading repository data...</span>
+      </div>
+      <p>Loading repository data. This may take a moment for large datasets.</p>
+    </div>
+
+    <div id="error" class="error-message" hidden role="alert"></div>
+
+    <div id="table-area" hidden>
+      <div class="table-container" role="region" aria-label="Repository data table" tabindex="0">
+        <table class="repo-table" id="repo-table">
+          <caption class="sr-only">UK Government open source repositories, sortable by column headers</caption>
+          <thead>
+            <tr>
+              <th scope="col" aria-sort="none" data-sort="owner" tabindex="0" role="columnheader button">Owner</th>
+              <th scope="col" aria-sort="none" data-sort="name" tabindex="0" role="columnheader button">Name</th>
+              <th scope="col" aria-sort="none" data-sort="license" tabindex="0" role="columnheader button">Licence</th>
+              <th scope="col" aria-sort="none" data-sort="archived" tabindex="0" role="columnheader button">Archived</th>
+              <th scope="col" aria-sort="none" data-sort="language" tabindex="0" role="columnheader button">Language</th>
+              <th scope="col" aria-sort="descending" data-sort="stargazersCount" tabindex="0" role="columnheader button">Stars</th>
+              <th scope="col" aria-sort="none" data-sort="openIssuesCount" tabindex="0" role="columnheader button">Issues</th>
+              <th scope="col" aria-sort="none" data-sort="forksCount" tabindex="0" role="columnheader button">Forks</th>
+              <th scope="col" aria-sort="none" data-sort="createdAt" tabindex="0" role="columnheader button">Created</th>
+              <th scope="col" aria-sort="none" data-sort="updatedAt" tabindex="0" role="columnheader button">Updated</th>
+              <th scope="col" aria-sort="none" data-sort="pushedAt" tabindex="0" role="columnheader button">Last Pushed</th>
+            </tr>
+          </thead>
+          <tbody id="repo-tbody"></tbody>
+        </table>
+      </div>
+
+      <nav aria-label="Pagination" class="pagination" id="pagination">
+        <div class="pagination__info" id="pagination-info"></div>
+        <div class="pagination__controls" id="pagination-controls"></div>
+      </nav>
+    </div>
+
+    <div class="live-region" id="live-region" aria-live="polite" aria-atomic="true"></div>
+  </main>
+
+  <footer class="govuk-footer" role="contentinfo">
+    <div class="govuk-footer__container">
+      <p>
+        Data sourced from <a href="https://github.com">GitHub</a>.
+        Built by <a href="https://github.com/UKHomeOffice/xgov-opensource-repo-scraper">xgov-opensource-repo-scraper</a>.
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* ===== State ===== */
+      let allRepos = [];
+      let filteredRepos = [];
+      let currentSort = { key: 'stargazersCount', ascending: false };
+      let currentPage = 1;
+      let pageSize = 100;
+
+      /* ===== DOM references ===== */
+      const dom = {
+        loading: document.getElementById('loading'),
+        error: document.getElementById('error'),
+        statsBar: document.getElementById('stats-bar'),
+        controls: document.getElementById('controls'),
+        filterInfo: document.getElementById('filter-info'),
+        tableArea: document.getElementById('table-area'),
+        tbody: document.getElementById('repo-tbody'),
+        searchInput: document.getElementById('search-input'),
+        pageSizeSelect: document.getElementById('page-size'),
+        paginationInfo: document.getElementById('pagination-info'),
+        paginationControls: document.getElementById('pagination-controls'),
+        liveRegion: document.getElementById('live-region'),
+        statRepos: document.getElementById('stat-repos'),
+        statOrgs: document.getElementById('stat-orgs'),
+        statLanguages: document.getElementById('stat-languages'),
+        statStars: document.getElementById('stat-stars'),
+      };
+
+      /* ===== Utilities ===== */
+      function formatNumber(n) {
+        if (n == null) return '0';
+        return Number(n).toLocaleString('en-GB');
+      }
+
+      function formatDate(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString('en-GB', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
+      }
+
+      function escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      function debounce(fn, delay) {
+        let timer;
+        return function () {
+          const args = arguments;
+          const context = this;
+          clearTimeout(timer);
+          timer = setTimeout(function () {
+            fn.apply(context, args);
+          }, delay);
+        };
+      }
+
+      function announce(message) {
+        dom.liveRegion.textContent = '';
+        // Force screen reader re-announcement by clearing first
+        requestAnimationFrame(function () {
+          dom.liveRegion.textContent = message;
+        });
+      }
+
+      /* ===== Data fetching ===== */
+      function loadData() {
+        fetch('./repos.json')
+          .then(function (response) {
+            if (!response.ok) {
+              throw new Error('Failed to load repository data (HTTP ' + response.status + ')');
+            }
+            return response.json();
+          })
+          .then(function (data) {
+            allRepos = data;
+            filteredRepos = allRepos.slice();
+            dom.loading.hidden = true;
+            dom.statsBar.hidden = false;
+            dom.controls.hidden = false;
+            dom.tableArea.hidden = false;
+            updateStats(allRepos);
+            sortRepos();
+            announce('Loaded ' + formatNumber(allRepos.length) + ' repositories.');
+          })
+          .catch(function (err) {
+            dom.loading.hidden = true;
+            dom.error.hidden = false;
+            dom.error.textContent = 'Error: ' + err.message;
+          });
+      }
+
+      /* ===== Stats ===== */
+      function updateStats(repos) {
+        var orgs = new Set();
+        var languages = new Set();
+        var totalStars = 0;
+
+        for (var i = 0; i < repos.length; i++) {
+          var r = repos[i];
+          if (r.owner) orgs.add(r.owner);
+          if (r.language) languages.add(r.language);
+          totalStars += r.stargazersCount || 0;
+        }
+
+        dom.statRepos.textContent = formatNumber(repos.length);
+        dom.statOrgs.textContent = formatNumber(orgs.size);
+        dom.statLanguages.textContent = formatNumber(languages.size);
+        dom.statStars.textContent = formatNumber(totalStars);
+      }
+
+      /* ===== Search / Filter ===== */
+      function applyFilter() {
+        var query = dom.searchInput.value.trim().toLowerCase();
+        if (!query) {
+          filteredRepos = allRepos.slice();
+        } else {
+          var terms = query.split(/\s+/);
+          filteredRepos = allRepos.filter(function (repo) {
+            var searchable = [
+              repo.owner || '',
+              repo.name || '',
+              repo.language || '',
+              (repo.license && repo.license.name) || ''
+            ].join(' ').toLowerCase();
+            return terms.every(function (term) {
+              return searchable.indexOf(term) !== -1;
+            });
+          });
+        }
+        currentPage = 1;
+        sortRepos();
+        updateFilterInfo();
+        announce(formatNumber(filteredRepos.length) + ' repositories match your search.');
+      }
+
+      function updateFilterInfo() {
+        var query = dom.searchInput.value.trim();
+        if (query) {
+          dom.filterInfo.hidden = false;
+          dom.filterInfo.textContent =
+            'Showing ' + formatNumber(filteredRepos.length) +
+            ' of ' + formatNumber(allRepos.length) +
+            ' repositories matching "' + query + '"';
+        } else {
+          dom.filterInfo.hidden = true;
+          dom.filterInfo.textContent = '';
+        }
+      }
+
+      /* ===== Sorting ===== */
+      function compareValues(a, b, key, ascending) {
+        var valA = a[key];
+        var valB = b[key];
+
+        // Handle license specially - sort by license name
+        if (key === 'license') {
+          valA = (a.license && a.license.name) || '';
+          valB = (b.license && b.license.name) || '';
+        }
+
+        // Nulls/undefined always last
+        if (valA == null && valB == null) return 0;
+        if (valA == null) return 1;
+        if (valB == null) return -1;
+
+        // Strings
+        if (typeof valA === 'string' && typeof valB === 'string') {
+          var cmp = valA.localeCompare(valB, 'en', { sensitivity: 'base' });
+          return ascending ? cmp : -cmp;
+        }
+
+        // Booleans
+        if (typeof valA === 'boolean') {
+          if (valA === valB) return 0;
+          var boolCmp = valA ? -1 : 1;
+          return ascending ? boolCmp : -boolCmp;
+        }
+
+        // Numbers and dates (dates are ISO strings, compare lexically works)
+        if (valA < valB) return ascending ? -1 : 1;
+        if (valA > valB) return ascending ? 1 : -1;
+        return 0;
+      }
+
+      function sortRepos() {
+        var key = currentSort.key;
+        var ascending = currentSort.ascending;
+
+        filteredRepos.sort(function (a, b) {
+          return compareValues(a, b, key, ascending);
+        });
+
+        updateSortHeaders();
+        renderPage();
+      }
+
+      function updateSortHeaders() {
+        var headers = document.querySelectorAll('.repo-table thead th[data-sort]');
+        for (var i = 0; i < headers.length; i++) {
+          var th = headers[i];
+          if (th.getAttribute('data-sort') === currentSort.key) {
+            th.setAttribute('aria-sort', currentSort.ascending ? 'ascending' : 'descending');
+          } else {
+            th.setAttribute('aria-sort', 'none');
+          }
+        }
+      }
+
+      function handleSort(key) {
+        if (currentSort.key === key) {
+          currentSort.ascending = !currentSort.ascending;
+        } else {
+          currentSort.key = key;
+          // Default sort direction: descending for numbers, ascending for strings
+          var numericKeys = ['stargazersCount', 'openIssuesCount', 'forksCount'];
+          currentSort.ascending = numericKeys.indexOf(key) === -1;
+        }
+        currentPage = 1;
+        sortRepos();
+
+        var direction = currentSort.ascending ? 'ascending' : 'descending';
+        announce('Sorted by ' + key + ', ' + direction + '.');
+      }
+
+      /* ===== Rendering ===== */
+      function renderPage() {
+        var start, end, pageRepos;
+
+        if (pageSize === 'all') {
+          start = 0;
+          end = filteredRepos.length;
+          pageRepos = filteredRepos;
+        } else {
+          var totalPages = Math.max(1, Math.ceil(filteredRepos.length / pageSize));
+          if (currentPage > totalPages) currentPage = totalPages;
+          start = (currentPage - 1) * pageSize;
+          end = Math.min(start + pageSize, filteredRepos.length);
+          pageRepos = filteredRepos.slice(start, end);
+        }
+
+        renderRows(pageRepos);
+        renderPagination(start, end);
+      }
+
+      function renderRows(repos) {
+        // Build HTML string for performance with large datasets
+        var html = '';
+
+        for (var i = 0; i < repos.length; i++) {
+          var repo = repos[i];
+          var ownerUrl = 'https://github.com/' + escapeHtml(repo.owner);
+          var repoUrl = escapeHtml(repo.url || '');
+          var licenseName = (repo.license && repo.license.name) || '';
+          var licenseUrl = (repo.license && repo.license.url) || '';
+
+          var licenseCell = '';
+          if (licenseName) {
+            if (licenseName === 'Other') {
+              licenseCell = '<a href="' + repoUrl + '/blob/master/LICENSE">' + escapeHtml(licenseName) + '</a>';
+            } else if (licenseUrl) {
+              licenseCell = '<a href="' + escapeHtml(licenseUrl) + '">' + escapeHtml(licenseName) + '</a>';
+            } else {
+              licenseCell = escapeHtml(licenseName);
+            }
+          } else {
+            licenseCell = '<span class="indicator-none" aria-label="No licence">--</span>';
+          }
+
+          var archivedCell = repo.archived
+            ? '<span class="indicator-yes" aria-label="Yes">Yes</span>'
+            : '<span class="indicator-no" aria-label="No">No</span>';
+
+          html += '<tr>' +
+            '<td><a href="' + ownerUrl + '">' + escapeHtml(repo.owner) + '</a></td>' +
+            '<td><a href="' + repoUrl + '">' + escapeHtml(repo.name) + '</a></td>' +
+            '<td>' + licenseCell + '</td>' +
+            '<td>' + archivedCell + '</td>' +
+            '<td>' + escapeHtml(repo.language || '') + '</td>' +
+            '<td class="numeric">' + formatNumber(repo.stargazersCount) + '</td>' +
+            '<td class="numeric">' + formatNumber(repo.openIssuesCount) + '</td>' +
+            '<td class="numeric">' + formatNumber(repo.forksCount) + '</td>' +
+            '<td>' + formatDate(repo.createdAt) + '</td>' +
+            '<td>' + formatDate(repo.updatedAt) + '</td>' +
+            '<td>' + formatDate(repo.pushedAt) + '</td>' +
+            '</tr>';
+        }
+
+        dom.tbody.innerHTML = html;
+      }
+
+      function renderPagination(start, end) {
+        if (pageSize === 'all') {
+          dom.paginationInfo.textContent =
+            'Showing all ' + formatNumber(filteredRepos.length) + ' repositories';
+          dom.paginationControls.innerHTML = '';
+          return;
+        }
+
+        var total = filteredRepos.length;
+        var totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+        dom.paginationInfo.textContent =
+          'Showing ' + formatNumber(start + 1) + ' to ' + formatNumber(end) +
+          ' of ' + formatNumber(total) + ' repositories';
+
+        if (totalPages <= 1) {
+          dom.paginationControls.innerHTML = '';
+          return;
+        }
+
+        var html = '';
+
+        // Previous button
+        html += '<button class="pagination__btn" ' +
+          (currentPage <= 1 ? 'disabled' : '') +
+          ' data-page="' + (currentPage - 1) + '"' +
+          ' aria-label="Previous page">' +
+          '\u2190 Prev</button>';
+
+        // Page number buttons - show max 7 pages with ellipsis
+        var pages = getPaginationRange(currentPage, totalPages, 7);
+        for (var i = 0; i < pages.length; i++) {
+          var p = pages[i];
+          if (p === '...') {
+            html += '<span class="pagination__btn" style="border:none;cursor:default;text-decoration:none;">\u2026</span>';
+          } else {
+            var isCurrent = p === currentPage;
+            html += '<button class="pagination__btn"' +
+              (isCurrent ? ' aria-current="page"' : '') +
+              ' data-page="' + p + '"' +
+              ' aria-label="Page ' + p + '">' +
+              p + '</button>';
+          }
+        }
+
+        // Next button
+        html += '<button class="pagination__btn" ' +
+          (currentPage >= totalPages ? 'disabled' : '') +
+          ' data-page="' + (currentPage + 1) + '"' +
+          ' aria-label="Next page">' +
+          'Next \u2192</button>';
+
+        dom.paginationControls.innerHTML = html;
+      }
+
+      function getPaginationRange(current, total, maxVisible) {
+        if (total <= maxVisible) {
+          var all = [];
+          for (var i = 1; i <= total; i++) all.push(i);
+          return all;
+        }
+
+        var pages = [];
+        var half = Math.floor(maxVisible / 2);
+
+        // Always include first page
+        pages.push(1);
+
+        var rangeStart = Math.max(2, current - half + 1);
+        var rangeEnd = Math.min(total - 1, current + half - 1);
+
+        // Adjust range if near edges
+        if (current <= half) {
+          rangeEnd = Math.min(total - 1, maxVisible - 2);
+        }
+        if (current > total - half) {
+          rangeStart = Math.max(2, total - maxVisible + 3);
+        }
+
+        if (rangeStart > 2) pages.push('...');
+        for (var j = rangeStart; j <= rangeEnd; j++) pages.push(j);
+        if (rangeEnd < total - 1) pages.push('...');
+
+        // Always include last page
+        pages.push(total);
+
+        return pages;
+      }
+
+      /* ===== Event Listeners ===== */
+
+      // Sort header clicks and keyboard
+      document.querySelector('.repo-table thead').addEventListener('click', function (e) {
+        var th = e.target.closest('th[data-sort]');
+        if (th) handleSort(th.getAttribute('data-sort'));
+      });
+
+      document.querySelector('.repo-table thead').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          var th = e.target.closest('th[data-sort]');
+          if (th) {
+            e.preventDefault();
+            handleSort(th.getAttribute('data-sort'));
+          }
+        }
+      });
+
+      // Search input with debounce
+      dom.searchInput.addEventListener('input', debounce(applyFilter, 250));
+
+      // Clear search on Escape
+      dom.searchInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          dom.searchInput.value = '';
+          applyFilter();
+        }
+      });
+
+      // Page size change
+      dom.pageSizeSelect.addEventListener('change', function () {
+        var val = dom.pageSizeSelect.value;
+        pageSize = val === 'all' ? 'all' : parseInt(val, 10);
+        currentPage = 1;
+        renderPage();
+      });
+
+      // Pagination button clicks (event delegation)
+      dom.paginationControls.addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-page]');
+        if (btn && !btn.disabled) {
+          currentPage = parseInt(btn.getAttribute('data-page'), 10);
+          renderPage();
+          // Scroll table into view
+          dom.tableArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          announce('Page ' + currentPage);
+        }
+      });
+
+      /* ===== Init ===== */
+      loadData();
+    })();
+  </script>
+</body>
 </html>
