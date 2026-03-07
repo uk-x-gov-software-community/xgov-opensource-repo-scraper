@@ -2,7 +2,7 @@ name: Publisher
 
 on:
   push:
-    branches: [master, feat/v2-modernize-parallelize-sbom]
+    branches: [master]
   schedule:
     - cron: '0 2 * * *'
   workflow_dispatch:
