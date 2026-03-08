@@ -1,5 +1,6 @@
 import yaml from "js-yaml";
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from "fs";
+import { join } from "path";
 import { Command } from "commander";
 
 const program = new Command();
@@ -436,6 +437,405 @@ program
     }
     console.log(`Merged ${files.length} chunks: ${allRepos.length} total repos`);
     return outputIt(allRepos, options.write);
+  });
+
+// ---------- REST API fetch helper ----------
+
+/**
+ * Performs a REST API GET request with retry logic for rate limits and server errors.
+ * Returns { status, data, headers } on success or 404.
+ * Retries on 403/429 (rate limit) and 5xx (server error) with appropriate backoff.
+ */
+async function restFetch(url) {
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    let resp;
+    try {
+      resp = await fetch(url, {
+        headers: {
+          Authorization: `bearer ${GITHUB_TOKEN}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": "xgov-opensource-repo-scraper",
+        },
+      });
+    } catch (err) {
+      const waitMs = Math.min(2000 * Math.pow(2, attempt), 60000);
+      console.log(
+        `Network error (${err.message}), retrying in ${Math.ceil(waitMs / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})...`
+      );
+      await delay(waitMs);
+      continue;
+    }
+
+    // 404 is a valid "not found" response, not an error
+    if (resp.status === 404) {
+      return { status: 404, data: null, headers: resp.headers };
+    }
+
+    // Rate limit or abuse detection — retry with backoff
+    if (resp.status === 403 || resp.status === 429) {
+      const retryAfter = resp.headers.get("retry-after");
+      const waitMs = retryAfter
+        ? parseInt(retryAfter, 10) * 1000
+        : Math.min(2000 * Math.pow(2, attempt), 120000);
+      console.log(
+        `Rate limit (${resp.status}), retrying in ${Math.ceil(waitMs / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})...`
+      );
+      await delay(waitMs);
+      continue;
+    }
+
+    // Server errors — exponential backoff
+    if (resp.status >= 500) {
+      const waitMs = Math.min(2000 * Math.pow(2, attempt), 60000);
+      console.log(
+        `Server error (${resp.status}), retrying in ${Math.ceil(waitMs / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})...`
+      );
+      await delay(waitMs);
+      continue;
+    }
+
+    if (!resp.ok) {
+      throw new Error(`REST HTTP ${resp.status}: ${await resp.text()}`);
+    }
+
+    const data = await resp.json();
+    return { status: resp.status, data, headers: resp.headers };
+  }
+  throw new Error(`REST fetch failed after ${MAX_RETRIES} retries: ${url}`);
+}
+
+// ---------- SBOM helper functions ----------
+
+/**
+ * Convert an SPDX 2.3 package object to a CycloneDX 1.5 component.
+ * Extracts PURL from externalRefs if available.
+ */
+function spdxPackageToCycloneDx(pkg) {
+  const purlRef = (pkg.externalRefs || []).find(
+    (r) => r.referenceType === "purl"
+  );
+  const purl = purlRef?.referenceLocator || null;
+  return {
+    type: "library",
+    ...(purl ? { "bom-ref": purl, purl } : {}),
+    name: pkg.name,
+    version: pkg.versionInfo || "",
+    ...(pkg.licenseDeclared && pkg.licenseDeclared !== "NOASSERTION"
+      ? { licenses: [{ expression: pkg.licenseDeclared }] }
+      : {}),
+  };
+}
+
+/**
+ * Deduplicate CycloneDX components by PURL (or name@version if no PURL).
+ * First occurrence wins.
+ */
+function deduplicateComponents(components) {
+  const seen = new Map();
+  for (const comp of components) {
+    const key = comp.purl || `${comp.name}@${comp.version}`;
+    if (!seen.has(key)) seen.set(key, comp);
+  }
+  return Array.from(seen.values());
+}
+
+/**
+ * Generate the top-level CycloneDX 1.5 catalog SBOM listing all repos
+ * as components, with metadata properties from GitHub.
+ */
+function generateCatalogSbom(repos, manifest) {
+  return {
+    bomFormat: "CycloneDX",
+    specVersion: "1.5",
+    version: 1,
+    metadata: {
+      timestamp: new Date().toISOString(),
+      component: {
+        type: "application",
+        name: "xgov-opensource-repo-scraper",
+        version: "2.0.0",
+        description: "UK Government open source repository catalogue",
+      },
+    },
+    components: repos.map((repo) => {
+      const key = `${repo.owner}/${repo.name}`;
+      const hasSbom = manifest[key]?.status === "ok";
+      return {
+        type: "application",
+        name: repo.name,
+        version: repo.pushedAt || repo.updatedAt || "unknown",
+        description: repo.description || "",
+        group: repo.owner,
+        externalReferences: [{ type: "website", url: repo.url }],
+        ...(repo.license?.spdxId && repo.license.spdxId !== "NOASSERTION"
+          ? { licenses: [{ license: { id: repo.license.spdxId } }] }
+          : {}),
+        properties: [
+          { name: "github:language", value: repo.language || "" },
+          { name: "github:stars", value: String(repo.stargazersCount || 0) },
+          { name: "github:forks", value: String(repo.forksCount || 0) },
+          { name: "github:archived", value: String(repo.archived || false) },
+          { name: "github:has-sbom", value: String(hasSbom) },
+        ],
+      };
+    }),
+  };
+}
+
+// ---------- fetch-sboms command ----------
+
+program
+  .command("fetch-sboms")
+  .description(
+    "Fetch SPDX SBOMs from GitHub for repos, with incremental caching and rate-limit awareness"
+  )
+  .requiredOption("--repos-file <path>", "Path to repos.json")
+  .requiredOption("--cache-dir <dir>", "SBOM cache directory")
+  .option("--budget <n>", "Max API calls this run", parseInt, 95)
+  .option("--max-hours <n>", "Time limit in hours", parseFloat, 5)
+  .action(async (options) => {
+    const repos = JSON.parse(readFileSync(options.reposFile, "utf8"));
+    const cacheDir = options.cacheDir;
+    const budget = options.budget;
+    const maxMs = options.maxHours * 60 * 60 * 1000;
+    const startTime = Date.now();
+
+    // Ensure cache directories exist
+    mkdirSync(join(cacheDir, "spdx"), { recursive: true });
+
+    // Load or initialise the SBOM manifest
+    const manifestPath = join(cacheDir, "sbom-manifest.json");
+    let manifest = {};
+    if (existsSync(manifestPath)) {
+      try {
+        manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+      } catch {
+        console.log("Manifest file corrupt, starting fresh");
+      }
+    }
+
+    // Build priority queue: changed repos first, then backfill (by stars desc)
+    const changed = [];
+    const backfill = [];
+
+    for (const repo of repos) {
+      const key = `${repo.owner}/${repo.name}`;
+      const entry = manifest[key];
+
+      if (!entry) {
+        // Not in manifest — backfill candidate
+        backfill.push(repo);
+      } else if (entry.pushedAt === repo.pushedAt) {
+        // Unchanged — skip
+        continue;
+      } else if (repo.pushedAt > (entry.fetchedAt || "")) {
+        // Repo pushed after last fetch — changed
+        changed.push(repo);
+      }
+    }
+
+    // Sort backfill by stargazersCount descending (most popular first)
+    backfill.sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0));
+
+    const queue = [...changed, ...backfill];
+    console.log(
+      `SBOM fetch queue: ${changed.length} changed, ${backfill.length} backfill, ${queue.length} total (budget: ${budget})`
+    );
+
+    let apiCalls = 0;
+    let okCount = 0;
+    let notFoundCount = 0;
+    let errorCount = 0;
+    const SBOM_DELAY_MS = 37000; // 37 seconds between requests (100/hr rate limit)
+
+    for (const repo of queue) {
+      // Check budget
+      if (apiCalls >= budget) {
+        console.log(`Budget exhausted (${apiCalls}/${budget}), stopping`);
+        break;
+      }
+
+      // Check time limit
+      if (Date.now() - startTime >= maxMs) {
+        console.log(
+          `Time limit reached (${options.maxHours}h), stopping after ${apiCalls} calls`
+        );
+        break;
+      }
+
+      const key = `${repo.owner}/${repo.name}`;
+      const sbomUrl = `https://api.github.com/repos/${repo.owner}/${repo.name}/dependency-graph/sbom`;
+
+      try {
+        const { status, data, headers } = await restFetch(sbomUrl);
+        apiCalls++;
+
+        if (status === 200) {
+          // Save SPDX file
+          const spdxDir = join(cacheDir, "spdx", repo.owner);
+          mkdirSync(spdxDir, { recursive: true });
+          writeFileSync(
+            join(spdxDir, `${repo.name}.json`),
+            JSON.stringify(data, null, 2)
+          );
+          manifest[key] = {
+            fetchedAt: new Date().toISOString(),
+            pushedAt: repo.pushedAt,
+            status: "ok",
+          };
+          okCount++;
+          console.log(`  [ok]  ${key}`);
+        } else if (status === 404) {
+          manifest[key] = {
+            fetchedAt: new Date().toISOString(),
+            pushedAt: repo.pushedAt,
+            status: "404",
+          };
+          notFoundCount++;
+          console.log(`  [404] ${key}`);
+        }
+
+        // Check rate limit headers — stop if exhausted
+        const remaining = headers.get("x-ratelimit-remaining");
+        if (remaining !== null && parseInt(remaining, 10) === 0) {
+          console.log("Rate limit exhausted (x-ratelimit-remaining: 0), stopping");
+          break;
+        }
+      } catch (err) {
+        manifest[key] = {
+          fetchedAt: new Date().toISOString(),
+          pushedAt: repo.pushedAt,
+          status: "error",
+        };
+        errorCount++;
+        console.error(`  [err] ${key}: ${err.message}`);
+      }
+
+      // Delay between requests to stay under 100/hr rate limit
+      if (apiCalls < budget && apiCalls < queue.length) {
+        await delay(SBOM_DELAY_MS);
+      }
+    }
+
+    // Save manifest
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(
+      `SBOM fetch complete in ${elapsed}s: ${apiCalls} API calls, ${okCount} ok, ${notFoundCount} not found, ${errorCount} errors`
+    );
+  });
+
+// ---------- generate-sbom command ----------
+
+program
+  .command("generate-sbom")
+  .description(
+    "Generate CycloneDX 1.5 SBOM catalog and per-org dependency BOMs from cached SPDX data"
+  )
+  .requiredOption("--repos-file <path>", "Path to repos.json")
+  .requiredOption("--cache-dir <dir>", "SBOM cache directory (same as fetch-sboms)")
+  .requiredOption("--output-dir <dir>", "Output directory (e.g. ./public)")
+  .action(async (options) => {
+    const repos = JSON.parse(readFileSync(options.reposFile, "utf8"));
+    const cacheDir = options.cacheDir;
+    const outputDir = options.outputDir;
+
+    // Load manifest
+    const manifestPath = join(cacheDir, "sbom-manifest.json");
+    let manifest = {};
+    if (existsSync(manifestPath)) {
+      try {
+        manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+      } catch {
+        console.log("Manifest file corrupt or missing, using empty manifest");
+      }
+    }
+
+    // --- Tier 1: catalog SBOM ---
+    mkdirSync(outputDir, { recursive: true });
+    const catalogSbom = generateCatalogSbom(repos, manifest);
+    const catalogPath = join(outputDir, "sbom.json");
+    writeFileSync(catalogPath, JSON.stringify(catalogSbom, null, 2));
+    console.log(
+      `Tier 1: wrote catalog SBOM with ${catalogSbom.components.length} components to ${catalogPath}`
+    );
+
+    // --- Tier 2: per-org dependency BOMs ---
+    const sbomOutputDir = join(outputDir, "sbom");
+    mkdirSync(sbomOutputDir, { recursive: true });
+
+    // Group repos by org and filter to those with SBOM data
+    const orgRepos = new Map();
+    for (const repo of repos) {
+      const key = `${repo.owner}/${repo.name}`;
+      if (manifest[key]?.status === "ok") {
+        if (!orgRepos.has(repo.owner)) {
+          orgRepos.set(repo.owner, []);
+        }
+        orgRepos.get(repo.owner).push(repo);
+      }
+    }
+
+    let orgCount = 0;
+    let totalDeps = 0;
+
+    for (const [org, orgRepoList] of orgRepos) {
+      const allComponents = [];
+
+      for (const repo of orgRepoList) {
+        const spdxPath = join(cacheDir, "spdx", repo.owner, `${repo.name}.json`);
+        if (!existsSync(spdxPath)) continue;
+
+        try {
+          const spdxData = JSON.parse(readFileSync(spdxPath, "utf8"));
+          const packages = spdxData?.sbom?.packages || spdxData?.packages || [];
+
+          for (const pkg of packages) {
+            // Skip the root package (SPDX documents include the repo itself)
+            if (
+              pkg.SPDXID === "SPDXRef-DOCUMENT" ||
+              pkg.SPDXID === "SPDXRef-com.github"
+            ) {
+              continue;
+            }
+            allComponents.push(spdxPackageToCycloneDx(pkg));
+          }
+        } catch (err) {
+          console.error(`  Error reading SPDX for ${org}/${repo.name}: ${err.message}`);
+        }
+      }
+
+      if (allComponents.length === 0) continue;
+
+      const deduplicated = deduplicateComponents(allComponents);
+      const orgBom = {
+        bomFormat: "CycloneDX",
+        specVersion: "1.5",
+        version: 1,
+        metadata: {
+          timestamp: new Date().toISOString(),
+          component: {
+            type: "application",
+            name: `${org}-dependencies`,
+            version: "1.0.0",
+            description: `Aggregated dependencies for ${org}`,
+          },
+        },
+        components: deduplicated,
+      };
+
+      const orgOutputPath = join(sbomOutputDir, `${org}.json`);
+      writeFileSync(orgOutputPath, JSON.stringify(orgBom, null, 2));
+      orgCount++;
+      totalDeps += deduplicated.length;
+      console.log(
+        `  ${org}: ${deduplicated.length} unique dependencies (from ${orgRepoList.length} repos)`
+      );
+    }
+
+    console.log(
+      `Tier 2: wrote ${orgCount} per-org BOMs with ${totalDeps} total unique dependencies to ${sbomOutputDir}/`
+    );
   });
 
 program.parse();
