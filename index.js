@@ -1,5 +1,6 @@
 import yaml from "js-yaml";
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from "fs";
+import { join } from "path";
 import { Command } from "commander";
 
 const program = new Command();
@@ -436,6 +437,289 @@ program
     }
     console.log(`Merged ${files.length} chunks: ${allRepos.length} total repos`);
     return outputIt(allRepos, options.write);
+  });
+
+// ---------- REST API fetch helper ----------
+
+/**
+ * Performs a REST API GET request with retry logic for rate limits and server errors.
+ * Returns { status, data, headers } on success or 404.
+ * Retries on 403/429 (rate limit) and 5xx (server error) with appropriate backoff.
+ */
+async function restFetch(url) {
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    let resp;
+    try {
+      resp = await fetch(url, {
+        headers: {
+          Authorization: `bearer ${GITHUB_TOKEN}`,
+          Accept: "application/vnd.github+json",
+          "User-Agent": "xgov-opensource-repo-scraper",
+        },
+      });
+    } catch (err) {
+      const waitMs = Math.min(2000 * Math.pow(2, attempt), 60000);
+      console.log(
+        `Network error (${err.message}), retrying in ${Math.ceil(waitMs / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})...`
+      );
+      await delay(waitMs);
+      continue;
+    }
+
+    // 404 is a valid "not found" response, not an error
+    if (resp.status === 404) {
+      return { status: 404, data: null, headers: resp.headers };
+    }
+
+    // Rate limit or abuse detection — retry with backoff
+    if (resp.status === 403 || resp.status === 429) {
+      const retryAfter = resp.headers.get("retry-after");
+      const waitMs = retryAfter
+        ? parseInt(retryAfter, 10) * 1000
+        : Math.min(2000 * Math.pow(2, attempt), 120000);
+      console.log(
+        `Rate limit (${resp.status}), retrying in ${Math.ceil(waitMs / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})...`
+      );
+      await delay(waitMs);
+      continue;
+    }
+
+    // Server errors — exponential backoff
+    if (resp.status >= 500) {
+      const waitMs = Math.min(2000 * Math.pow(2, attempt), 60000);
+      console.log(
+        `Server error (${resp.status}), retrying in ${Math.ceil(waitMs / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})...`
+      );
+      await delay(waitMs);
+      continue;
+    }
+
+    if (!resp.ok) {
+      throw new Error(`REST HTTP ${resp.status}: ${await resp.text()}`);
+    }
+
+    const data = await resp.json();
+    return { status: resp.status, data, headers: resp.headers };
+  }
+  throw new Error(`REST fetch failed after ${MAX_RETRIES} retries: ${url}`);
+}
+
+// ---------- SBOM helper ----------
+
+// ---------- fetch-sboms command ----------
+
+program
+  .command("fetch-sboms")
+  .description(
+    "Fetch SPDX SBOMs from GitHub for repos, with incremental caching and rate-limit awareness"
+  )
+  .requiredOption("--repos-file <path>", "Path to repos.json")
+  .requiredOption("--cache-dir <dir>", "SBOM cache directory")
+  .option("--budget <n>", "Max API calls this run (default 95)", parseInt)
+  .option("--max-hours <n>", "Time limit in hours (default 5)", parseFloat)
+  .action(async (options) => {
+    const repos = JSON.parse(readFileSync(options.reposFile, "utf8"));
+    const cacheDir = options.cacheDir;
+    const budget = options.budget ?? 95;
+    const maxMs = (options.maxHours ?? 5) * 60 * 60 * 1000;
+    const startTime = Date.now();
+
+    // Ensure cache directories exist
+    mkdirSync(join(cacheDir, "spdx"), { recursive: true });
+
+    // Load or initialise the SBOM manifest
+    const manifestPath = join(cacheDir, "sbom-manifest.json");
+    let manifest = {};
+    if (existsSync(manifestPath)) {
+      try {
+        manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+      } catch {
+        console.log("Manifest file corrupt, starting fresh");
+      }
+    }
+
+    // Build priority queue:
+    //  1. Changed repos (pushedAt differs from last fetch)
+    //  2. New repos (never fetched)
+    //  3. Stale repos (fetched > 30 days ago — re-check in case GitHub added new manifest support)
+    const STALE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+    const now = Date.now();
+    const changed = [];
+    const newRepos = [];
+    const stale = [];
+    let skipped = 0;
+
+    for (const repo of repos) {
+      const key = `${repo.owner}/${repo.name}`;
+      const entry = manifest[key];
+
+      if (!entry) {
+        newRepos.push(repo);
+      } else if (entry.pushedAt !== repo.pushedAt) {
+        changed.push(repo);
+      } else if (now - new Date(entry.fetchedAt).getTime() > STALE_MS) {
+        stale.push(repo);
+      } else {
+        skipped++;
+      }
+    }
+
+    // Within each tier, sort by stars descending (most popular first)
+    newRepos.sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0));
+    stale.sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0));
+
+    const queue = [...changed, ...newRepos, ...stale];
+    console.log(
+      `SBOM fetch queue: ${changed.length} changed, ${newRepos.length} new, ${stale.length} stale (>30d), ${skipped} fresh (budget: ${budget})`
+    );
+
+    let apiCalls = 0;
+    let okCount = 0;
+    let notFoundCount = 0;
+    let errorCount = 0;
+    const SBOM_DELAY_MS = 37000; // 37 seconds between requests (100/hr rate limit)
+
+    for (const repo of queue) {
+      // Check budget
+      if (apiCalls >= budget) {
+        console.log(`Budget exhausted (${apiCalls}/${budget}), stopping`);
+        break;
+      }
+
+      // Check time limit
+      if (Date.now() - startTime >= maxMs) {
+        console.log(
+          `Time limit reached (${options.maxHours}h), stopping after ${apiCalls} calls`
+        );
+        break;
+      }
+
+      const key = `${repo.owner}/${repo.name}`;
+      const sbomUrl = `https://api.github.com/repos/${repo.owner}/${repo.name}/dependency-graph/sbom`;
+
+      try {
+        const { status, data, headers } = await restFetch(sbomUrl);
+        apiCalls++;
+
+        if (status === 200) {
+          // Save SPDX file
+          const spdxDir = join(cacheDir, "spdx", repo.owner);
+          mkdirSync(spdxDir, { recursive: true });
+          writeFileSync(
+            join(spdxDir, `${repo.name}.json`),
+            JSON.stringify(data, null, 2)
+          );
+          manifest[key] = {
+            fetchedAt: new Date().toISOString(),
+            pushedAt: repo.pushedAt,
+            status: "ok",
+          };
+          okCount++;
+          console.log(`  [ok]  ${key}`);
+        } else if (status === 404) {
+          manifest[key] = {
+            fetchedAt: new Date().toISOString(),
+            pushedAt: repo.pushedAt,
+            status: "404",
+          };
+          notFoundCount++;
+          console.log(`  [404] ${key}`);
+        }
+
+        // Check rate limit headers — stop if exhausted
+        const remaining = headers.get("x-ratelimit-remaining");
+        if (remaining !== null && parseInt(remaining, 10) === 0) {
+          console.log("Rate limit exhausted (x-ratelimit-remaining: 0), stopping");
+          break;
+        }
+      } catch (err) {
+        manifest[key] = {
+          fetchedAt: new Date().toISOString(),
+          pushedAt: repo.pushedAt,
+          status: "error",
+        };
+        errorCount++;
+        console.error(`  [err] ${key}: ${err.message}`);
+      }
+
+      // Delay between requests to stay under 100/hr rate limit
+      await delay(SBOM_DELAY_MS);
+    }
+
+    // Save manifest
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(
+      `SBOM fetch complete in ${elapsed}s: ${apiCalls} API calls, ${okCount} ok, ${notFoundCount} not found, ${errorCount} errors`
+    );
+  });
+
+// ---------- publish-sboms command ----------
+
+program
+  .command("publish-sboms")
+  .description(
+    "Copy cached SPDX SBOMs to output directory and add sbom links to repos.json"
+  )
+  .requiredOption("--repos-file <path>", "Path to repos.json (will be updated in-place)")
+  .requiredOption("--cache-dir <dir>", "SBOM cache directory (same as fetch-sboms)")
+  .requiredOption("--output-dir <dir>", "Output directory (e.g. ./public)")
+  .action(async (options) => {
+    const repos = JSON.parse(readFileSync(options.reposFile, "utf8"));
+    const cacheDir = options.cacheDir;
+    const outputDir = options.outputDir;
+
+    // Load manifest
+    const manifestPath = join(cacheDir, "sbom-manifest.json");
+    let manifest = {};
+    if (existsSync(manifestPath)) {
+      try {
+        manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+      } catch {
+        console.log("Manifest file corrupt or missing, using empty manifest");
+      }
+    }
+
+    // Copy SPDX files to output and enrich repos with sbom path
+    const sbomOutputDir = join(outputDir, "sbom");
+    let copiedCount = 0;
+    const stats = { ok: 0, notFound: 0, error: 0, pending: 0 };
+
+    for (const repo of repos) {
+      const key = `${repo.owner}/${repo.name}`;
+      const entry = manifest[key];
+      const s = entry?.status;
+
+      if (s === "ok") stats.ok++;
+      else if (s === "404") stats.notFound++;
+      else if (s === "error") stats.error++;
+      else stats.pending++;
+
+      if (entry?.status === "ok") {
+        const srcPath = join(cacheDir, "spdx", repo.owner, `${repo.name}.json`);
+        if (existsSync(srcPath)) {
+          const destDir = join(sbomOutputDir, repo.owner);
+          mkdirSync(destDir, { recursive: true });
+          writeFileSync(
+            join(destDir, `${repo.name}.json`),
+            readFileSync(srcPath)
+          );
+          copiedCount++;
+          repo.sbom = `sbom/${repo.owner}/${repo.name}.json`;
+        }
+      }
+    }
+
+    // Write updated repos.json with sbom links
+    writeFileSync(options.reposFile, JSON.stringify(repos, null, 2));
+    mkdirSync(sbomOutputDir, { recursive: true });
+
+    console.log(
+      `Published ${copiedCount} SPDX SBOMs to ${sbomOutputDir}/`
+    );
+    console.log(
+      `Coverage: ${stats.ok} ok, ${stats.notFound} no manifest, ${stats.error} errors, ${stats.pending} pending`
+    );
   });
 
 program.parse();
