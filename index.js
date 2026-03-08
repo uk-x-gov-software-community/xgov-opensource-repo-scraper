@@ -8,7 +8,7 @@ const GRAPHQL_URL = "https://api.github.com/graphql";
 const BATCH_SIZE = 3; // orgs per GraphQL query (tested max with issues sub-connection)
 const CONCURRENCY = 1; // sequential requests to avoid secondary rate limits
 const CHANGE_DETECT_BATCH = 50; // orgs per change detection query (no issues = higher limit)
-const INTER_BATCH_DELAY_MS = 2000; // delay between batches (safe for 3 parallel CI jobs sharing a token)
+const INTER_BATCH_DELAY_MS = 3000; // delay between batches (avoids secondary rate limits with 3 parallel CI jobs)
 const MAX_RETRIES = 5;
 
 async function getOrgs() {
