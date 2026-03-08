@@ -21,7 +21,8 @@ jobs:
       - uses: actions/setup-node@v4.1.0
         with:
           node-version-file: '.nvm'
-      - run: npm install
+          cache: 'npm'
+      - run: npm ci
       - run: npm test
 
   scrape:
@@ -36,7 +37,8 @@ jobs:
       - uses: actions/setup-node@v4.1.0
         with:
           node-version-file: '.nvm'
-      - run: npm install
+          cache: 'npm'
+      - run: npm ci --omit=dev
       - name: Restore repo cache
         uses: actions/cache@v4
         with:
@@ -61,15 +63,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.2
-      - uses: actions/setup-node@v4.1.0
-        with:
-          node-version-file: '.nvm'
-      - run: npm install
       - uses: actions/download-artifact@v4.1.8
         with:
           pattern: chunk-*
           merge-multiple: true
-      - run: node index.js merge-chunks chunk-0.json chunk-1.json chunk-2.json chunk-3.json -w ./public/repos.json
+      - name: Merge chunks
+        run: |
+          node -e "
+          const fs = require('fs');
+          const chunks = [0,1,2,3].map(i => JSON.parse(fs.readFileSync('chunk-'+i+'.json','utf8')));
+          const all = chunks.flat();
+          fs.writeFileSync('./public/repos.json', JSON.stringify(all, null, 2));
+          console.log('Merged ' + chunks.length + ' chunks: ' + all.length + ' repos');
+          "
       - run: tar -cf public.tar ./public
       - uses: actions/upload-artifact@v4.4.3
         with:

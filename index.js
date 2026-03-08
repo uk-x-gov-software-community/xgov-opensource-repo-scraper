@@ -413,11 +413,10 @@ program
   .action(async (options) => {
     let orgs = await getOrgs();
     if (options.totalChunks > 1 && options.chunk !== undefined) {
-      const chunkSize = Math.ceil(orgs.length / options.totalChunks);
-      const start = options.chunk * chunkSize;
-      orgs = orgs.slice(start, start + chunkSize);
+      const total = orgs.length;
+      orgs = orgs.filter((_, i) => i % options.totalChunks === options.chunk);
       console.log(
-        `Chunk ${options.chunk + 1}/${options.totalChunks}: processing ${orgs.length} orgs (index ${start}-${start + orgs.length - 1})`
+        `Chunk ${options.chunk + 1}/${options.totalChunks}: processing ${orgs.length}/${total} orgs (round-robin)`
       );
     }
     const allRepos = await fetchAllRepos(orgs, options.cacheDir);
