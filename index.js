@@ -538,32 +538,39 @@ program
       }
     }
 
-    // Build priority queue: changed repos first, then backfill (by stars desc)
+    // Build priority queue:
+    //  1. Changed repos (pushedAt differs from last fetch)
+    //  2. New repos (never fetched)
+    //  3. Stale repos (fetched > 30 days ago — re-check in case GitHub added new manifest support)
+    const STALE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+    const now = Date.now();
     const changed = [];
-    const backfill = [];
+    const newRepos = [];
+    const stale = [];
+    let skipped = 0;
 
     for (const repo of repos) {
       const key = `${repo.owner}/${repo.name}`;
       const entry = manifest[key];
 
       if (!entry) {
-        // Not in manifest — backfill candidate
-        backfill.push(repo);
-      } else if (entry.pushedAt === repo.pushedAt) {
-        // Unchanged — skip
-        continue;
-      } else if (repo.pushedAt > (entry.fetchedAt || "")) {
-        // Repo pushed after last fetch — changed
+        newRepos.push(repo);
+      } else if (entry.pushedAt !== repo.pushedAt) {
         changed.push(repo);
+      } else if (now - new Date(entry.fetchedAt).getTime() > STALE_MS) {
+        stale.push(repo);
+      } else {
+        skipped++;
       }
     }
 
-    // Sort backfill by stargazersCount descending (most popular first)
-    backfill.sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0));
+    // Within each tier, sort by stars descending (most popular first)
+    newRepos.sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0));
+    stale.sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0));
 
-    const queue = [...changed, ...backfill];
+    const queue = [...changed, ...newRepos, ...stale];
     console.log(
-      `SBOM fetch queue: ${changed.length} changed, ${backfill.length} backfill, ${queue.length} total (budget: ${budget})`
+      `SBOM fetch queue: ${changed.length} changed, ${newRepos.length} new, ${stale.length} stale (>30d), ${skipped} fresh (budget: ${budget})`
     );
 
     let apiCalls = 0;
@@ -652,9 +659,9 @@ program
 program
   .command("publish-sboms")
   .description(
-    "Copy cached SPDX SBOMs to output directory and generate an index"
+    "Copy cached SPDX SBOMs to output directory and add sbom links to repos.json"
   )
-  .requiredOption("--repos-file <path>", "Path to repos.json")
+  .requiredOption("--repos-file <path>", "Path to repos.json (will be updated in-place)")
   .requiredOption("--cache-dir <dir>", "SBOM cache directory (same as fetch-sboms)")
   .requiredOption("--output-dir <dir>", "Output directory (e.g. ./public)")
   .action(async (options) => {
@@ -673,14 +680,20 @@ program
       }
     }
 
-    // Copy SPDX files to output and build index
+    // Copy SPDX files to output and enrich repos with sbom path
     const sbomOutputDir = join(outputDir, "sbom");
-    const index = [];
     let copiedCount = 0;
+    const stats = { ok: 0, notFound: 0, error: 0, pending: 0 };
 
     for (const repo of repos) {
       const key = `${repo.owner}/${repo.name}`;
       const entry = manifest[key];
+      const s = entry?.status;
+
+      if (s === "ok") stats.ok++;
+      else if (s === "404") stats.notFound++;
+      else if (s === "error") stats.error++;
+      else stats.pending++;
 
       if (entry?.status === "ok") {
         const srcPath = join(cacheDir, "spdx", repo.owner, `${repo.name}.json`);
@@ -692,42 +705,17 @@ program
             readFileSync(srcPath)
           );
           copiedCount++;
-          index.push({
-            owner: repo.owner,
-            name: repo.name,
-            url: repo.url,
-            sbom: `sbom/${repo.owner}/${repo.name}.json`,
-            fetchedAt: entry.fetchedAt,
-          });
+          repo.sbom = `sbom/${repo.owner}/${repo.name}.json`;
         }
       }
     }
 
-    // Write index
+    // Write updated repos.json with sbom links
+    writeFileSync(options.reposFile, JSON.stringify(repos, null, 2));
     mkdirSync(sbomOutputDir, { recursive: true });
-    writeFileSync(
-      join(sbomOutputDir, "index.json"),
-      JSON.stringify(index, null, 2)
-    );
-
-    // Summary stats for the manifest
-    const stats = { ok: 0, notFound: 0, error: 0, pending: 0 };
-    const manifestKeys = new Set(Object.keys(manifest));
-    for (const repo of repos) {
-      const key = `${repo.owner}/${repo.name}`;
-      const s = manifest[key]?.status;
-      if (s === "ok") stats.ok++;
-      else if (s === "404") stats.notFound++;
-      else if (s === "error") stats.error++;
-      else stats.pending++;
-      manifestKeys.delete(key);
-    }
 
     console.log(
       `Published ${copiedCount} SPDX SBOMs to ${sbomOutputDir}/`
-    );
-    console.log(
-      `Index: ${index.length} repos with SBOMs`
     );
     console.log(
       `Coverage: ${stats.ok} ok, ${stats.notFound} no manifest, ${stats.error} errors, ${stats.pending} pending`
