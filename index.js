@@ -8,11 +8,8 @@ const GRAPHQL_URL = "https://api.github.com/graphql";
 const BATCH_SIZE = 3; // orgs per GraphQL query (tested max with issues sub-connection)
 const CONCURRENCY = 1; // sequential requests to avoid secondary rate limits
 const CHANGE_DETECT_BATCH = 50; // orgs per change detection query (no issues = higher limit)
-const INITIAL_DELAY_MS = 500; // start fast, increase on rate limits
-const MAX_DELAY_MS = 5000;
+const INTER_BATCH_DELAY_MS = 2000; // delay between batches
 const MAX_RETRIES = 5;
-
-let batchDelayMs = INITIAL_DELAY_MS;
 
 async function getOrgs() {
   const allDepartments = yaml.load(
@@ -65,9 +62,8 @@ async function graphqlFetch(query) {
       const waitMs = retryAfter
         ? parseInt(retryAfter, 10) * 1000
         : Math.min(2000 * Math.pow(2, attempt), 120000);
-      batchDelayMs = Math.min(batchDelayMs * 2, MAX_DELAY_MS);
       console.log(
-        `Rate limit/server error (${resp.status}), retrying in ${Math.ceil(waitMs / 1000)}s, batch delay now ${batchDelayMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})...`
+        `Rate limit/server error (${resp.status}), retrying in ${Math.ceil(waitMs / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})...`
       );
       await delay(waitMs);
       continue;
@@ -180,7 +176,7 @@ async function detectChangedOrgs(orgs, cache) {
     );
 
     if (i + CONCURRENCY < batches.length) {
-      await delay(batchDelayMs);
+      await delay(INTER_BATCH_DELAY_MS);
     }
 
     for (let b = 0; b < results.length; b++) {
@@ -271,7 +267,7 @@ async function fetchAllRepos(orgs, cacheDir) {
       );
 
       if (i + CONCURRENCY < batches.length) {
-        await delay(batchDelayMs);
+        await delay(INTER_BATCH_DELAY_MS);
       }
 
       for (const outcome of results) {
