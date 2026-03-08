@@ -6,9 +6,9 @@ const program = new Command();
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GRAPHQL_URL = "https://api.github.com/graphql";
 const BATCH_SIZE = 3; // orgs per GraphQL query (tested max with issues sub-connection)
-const CONCURRENCY = 2; // concurrent GraphQL requests (low to avoid secondary rate limits)
+const CONCURRENCY = 1; // sequential requests to avoid secondary rate limits
 const CHANGE_DETECT_BATCH = 50; // orgs per change detection query (no issues = higher limit)
-const INTER_BATCH_DELAY_MS = 2000; // delay between concurrent batches to avoid secondary rate limits
+const INTER_BATCH_DELAY_MS = 2000; // delay between batches (safe for 3 parallel CI jobs sharing a token)
 const MAX_RETRIES = 5;
 
 async function getOrgs() {
@@ -405,12 +405,37 @@ program
   .command("get-all")
   .option("-w, --write <outputfile>", "Save output to a file")
   .option("--cache-dir <dir>", "Directory for caching org data between runs")
+  .option("--chunk <n>", "Chunk index (0-based) for parallel fan-out", parseInt)
+  .option("--total-chunks <n>", "Total number of chunks for parallel fan-out", parseInt)
   .description(
     "Get consolidated data for all UK Government departments and agencies"
   )
   .action(async (options) => {
-    const orgs = await getOrgs();
+    let orgs = await getOrgs();
+    if (options.totalChunks > 1 && options.chunk !== undefined) {
+      const chunkSize = Math.ceil(orgs.length / options.totalChunks);
+      const start = options.chunk * chunkSize;
+      orgs = orgs.slice(start, start + chunkSize);
+      console.log(
+        `Chunk ${options.chunk + 1}/${options.totalChunks}: processing ${orgs.length} orgs (index ${start}-${start + orgs.length - 1})`
+      );
+    }
     const allRepos = await fetchAllRepos(orgs, options.cacheDir);
+    return outputIt(allRepos, options.write);
+  });
+
+program
+  .command("merge-chunks")
+  .description("Merge chunk JSON files into a single output")
+  .option("-w, --write <outputfile>", "Save merged output to a file")
+  .argument("<files...>", "Chunk JSON files to merge")
+  .action(async (files, options) => {
+    const allRepos = [];
+    for (const file of files) {
+      const data = JSON.parse(readFileSync(file, "utf8"));
+      allRepos.push(...data);
+    }
+    console.log(`Merged ${files.length} chunks: ${allRepos.length} total repos`);
     return outputIt(allRepos, options.write);
   });
 

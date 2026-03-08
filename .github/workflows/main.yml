@@ -14,9 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    permissions:
-      contents: read
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.2.2
@@ -25,20 +23,53 @@ jobs:
           node-version-file: '.nvm'
       - run: npm install
       - run: npm test
+
+  scrape:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        chunk: [0, 1, 2]
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.1.0
+        with:
+          node-version-file: '.nvm'
+      - run: npm install
       - name: Restore repo cache
         uses: actions/cache@v4
         with:
           path: cache/
-          key: repo-cache-${{ github.run_id }}
+          key: repo-cache-chunk${{ matrix.chunk }}-${{ github.run_id }}
           restore-keys: |
-            repo-cache-
+            repo-cache-chunk${{ matrix.chunk }}-
       - run: |
           for i in {1..3}; do
-            node index.js get-all -w ./public/repos.json --cache-dir ./cache && break
+            node index.js get-all -w ./chunk-${{ matrix.chunk }}.json --cache-dir ./cache --chunk ${{ matrix.chunk }} --total-chunks 3 && break
             if [ $i -eq 3 ]; then exit 1; fi
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v4.4.3
+        with:
+          name: chunk-${{ matrix.chunk }}
+          path: chunk-${{ matrix.chunk }}.json
+
+  build:
+    needs: scrape
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.1.0
+        with:
+          node-version-file: '.nvm'
+      - run: npm install
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          pattern: chunk-*
+          merge-multiple: true
+      - run: node index.js merge-chunks chunk-0.json chunk-1.json chunk-2.json -w ./public/repos.json
       - run: tar -cf public.tar ./public
       - uses: actions/upload-artifact@v4.4.3
         with:
