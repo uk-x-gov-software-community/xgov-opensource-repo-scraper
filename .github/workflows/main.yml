@@ -82,6 +82,43 @@ jobs:
           name: public.tar
           path: public.tar
 
+  sbom:
+    needs: build
+    if: github.ref == 'refs/heads/master'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.1.0
+        with:
+          node-version-file: '.nvm'
+          cache: 'npm'
+      - run: npm ci --omit=dev
+      - uses: actions/download-artifact@v4.1.8
+        with:
+          name: public.tar
+      - run: tar -xf public.tar
+      - name: Restore SBOM cache
+        uses: actions/cache@v4
+        with:
+          path: sbom-cache/
+          key: sbom-cache-${{ github.run_id }}
+          restore-keys: |
+            sbom-cache-
+      - name: Fetch SBOMs (incremental)
+        run: node index.js fetch-sboms --repos-file ./public/repos.json --cache-dir ./sbom-cache --budget 95 --max-hours 5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish SBOMs
+        run: node index.js publish-sboms --repos-file ./public/repos.json --cache-dir ./sbom-cache --output-dir ./public
+      - run: tar -cf public.tar ./public
+      - uses: actions/upload-artifact@v4.4.3
+        with:
+          name: public.tar
+          path: public.tar
+          overwrite: true
+
   publish:
     if: github.ref == 'refs/heads/master'
     permissions:
@@ -90,6 +127,7 @@ jobs:
       id-token: write
     needs:
       - build
+      - sbom
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
