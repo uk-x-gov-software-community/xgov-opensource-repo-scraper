@@ -1,0 +1,53 @@
+name: SBOM Collection
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  sbom:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.1.0
+        with:
+          node-version-file: '.nvm'
+          cache: 'npm'
+      - run: npm ci --omit=dev
+      - name: Download published repos.json
+        run: curl -sSf https://uk-x-gov-software-community.github.io/xgov-opensource-repo-scraper/repos.json -o repos.json
+      - name: Restore SBOM cache
+        uses: actions/cache@v4
+        with:
+          path: sbom-cache/
+          key: sbom-cache-${{ github.run_id }}
+          restore-keys: |
+            sbom-cache-
+      - name: Fetch SBOMs (incremental)
+        run: node index.js fetch-sboms --repos-file ./repos.json --cache-dir ./sbom-cache --budget 95 --max-hours 1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build public directory
+        run: |
+          cp repos.json public/repos.json
+          node index.js publish-sboms --repos-file ./public/repos.json --cache-dir ./sbom-cache --output-dir ./public
+      - uses: actions/configure-pages@v5.0.0
+      - uses: actions/upload-pages-artifact@v3.0.1
+        with:
+          path: public
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4.0.5

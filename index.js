@@ -1,6 +1,7 @@
 import yaml from "js-yaml";
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
+import { gzipSync } from "zlib";
 import { Command } from "commander";
 
 const program = new Command();
@@ -701,11 +702,11 @@ program
           const destDir = join(sbomOutputDir, repo.owner);
           mkdirSync(destDir, { recursive: true });
           writeFileSync(
-            join(destDir, `${repo.name}.json`),
-            readFileSync(srcPath)
+            join(destDir, `${repo.name}.json.gz`),
+            gzipSync(readFileSync(srcPath))
           );
           copiedCount++;
-          repo.sbom = `sbom/${repo.owner}/${repo.name}.json`;
+          repo.sbom = `sbom/${repo.owner}/${repo.name}.json.gz`;
         }
       }
     }
