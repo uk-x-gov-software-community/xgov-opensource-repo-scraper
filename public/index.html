@@ -47,11 +47,11 @@
 
     /* Header */
     header {
-      padding: 20px 24px 16px;
+      padding: 14px 24px 10px;
       border-bottom: 1px solid var(--border);
     }
-    header h1 { font-size: 28px; font-weight: 600; margin-bottom: 6px; }
-    header p { color: var(--text-secondary); font-size: 14px; max-width: 72ch; }
+    header h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+    header p { color: var(--text-secondary); font-size: 13px; max-width: 72ch; }
 
     /* Toolbar */
     .toolbar {
@@ -221,7 +221,7 @@
 
     /* Dashboard */
     #dashboard {
-      padding: 20px 24px 24px;
+      padding: 12px 24px 14px;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
     }
@@ -229,64 +229,64 @@
 
     .stat-cards {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 12px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-bottom: 12px;
     }
     .stat-card {
       background: var(--bg);
-      border-radius: 8px;
-      padding: 14px 16px;
-      border-left: 4px solid var(--accent);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      border-radius: 6px;
+      padding: 8px 12px;
+      border-left: 3px solid var(--accent);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
     .stat-card.green { border-left-color: var(--success); }
     .stat-card.amber { border-left-color: var(--focus); }
     .stat-card.red { border-left-color: var(--error); }
     .stat-card .stat-value {
-      font-size: 28px;
+      font-size: 20px;
       font-weight: 700;
       line-height: 1.1;
       font-variant-numeric: tabular-nums;
       color: var(--text);
     }
     .stat-card .stat-label {
-      font-size: 12px;
+      font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: var(--text-secondary);
       font-weight: 600;
-      margin-top: 2px;
+      margin-top: 1px;
     }
     .stat-card .stat-sub {
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-secondary);
-      margin-top: 4px;
+      margin-top: 2px;
     }
 
     .chart-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 16px;
+      gap: 10px;
+      margin-bottom: 10px;
     }
     .dash-panel {
       background: var(--bg);
-      border-radius: 8px;
-      padding: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      border-radius: 6px;
+      padding: 10px 12px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
     .dash-panel h3 {
-      font-size: 11px;
+      font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: var(--text-secondary);
       font-weight: 700;
-      margin-bottom: 12px;
+      margin-bottom: 6px;
     }
 
     /* SVG bar charts */
-    .bar-chart-svg { width: 100%; height: 180px; display: block; }
+    .bar-chart-svg { width: 100%; height: 120px; display: block; }
     .bar-chart-svg rect.bar {
       fill: var(--accent);
       transition: height 0.3s ease, y 0.3s ease;
@@ -300,12 +300,12 @@
     .hbar-row {
       display: flex;
       align-items: center;
-      margin-bottom: 6px;
-      font-size: 13px;
-      gap: 8px;
+      margin-bottom: 3px;
+      font-size: 12px;
+      gap: 6px;
     }
     .hbar-label {
-      width: 110px;
+      width: 100px;
       text-align: right;
       flex-shrink: 0;
       overflow: hidden;
@@ -316,9 +316,9 @@
     }
     .hbar-track {
       flex: 1;
-      height: 20px;
+      height: 16px;
       background: var(--surface);
-      border-radius: 4px;
+      border-radius: 3px;
       overflow: hidden;
     }
     .hbar-fill {
@@ -341,32 +341,32 @@
     .donut-wrap {
       display: flex;
       align-items: center;
-      gap: 20px;
+      gap: 14px;
     }
-    .donut-svg { width: 140px; height: 140px; flex-shrink: 0; }
+    .donut-svg { width: 100px; height: 100px; flex-shrink: 0; }
     .donut-svg circle {
       fill: none;
-      stroke-width: 28;
+      stroke-width: 22;
       transition: stroke-dasharray 0.4s ease, stroke-dashoffset 0.4s ease;
     }
-    .donut-legend { flex: 1; font-size: 13px; }
+    .donut-legend { flex: 1; font-size: 12px; }
     .donut-legend-item {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 4px;
+      gap: 6px;
+      margin-bottom: 2px;
     }
     .donut-swatch {
-      width: 12px;
-      height: 12px;
-      border-radius: 3px;
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
       flex-shrink: 0;
     }
     .donut-legend-label { flex: 1; color: var(--text); }
     .donut-legend-count {
       font-variant-numeric: tabular-nums;
       color: var(--text-secondary);
-      font-size: 12px;
+      font-size: 11px;
     }
 
     /* Top starred */
@@ -374,10 +374,10 @@
     .starred-item {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 5px 0;
+      gap: 6px;
+      padding: 3px 0;
       border-bottom: 1px solid var(--border);
-      font-size: 13px;
+      font-size: 12px;
     }
     .starred-item:last-child { border-bottom: none; }
     .starred-rank {
@@ -423,7 +423,7 @@
     @media (max-width: 768px) {
       .chart-row { grid-template-columns: 1fr; }
       .donut-wrap { flex-direction: column; }
-      .stat-cards { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+      .stat-cards { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
     }
     @media (max-width: 640px) {
       header { padding: 14px 16px 12px; }
@@ -431,9 +431,9 @@
       .toolbar { padding: 10px 16px; }
       #search { width: 100%; }
       .table-header th, .vtable td { font-size: 12px; padding: 0 8px; }
-      #dashboard { padding: 14px 16px 18px; }
-      .stat-card .stat-value { font-size: 22px; }
-      .hbar-label { width: 80px; font-size: 12px; }
+      #dashboard { padding: 10px 16px 12px; }
+      .stat-card .stat-value { font-size: 18px; }
+      .hbar-label { width: 70px; font-size: 11px; }
     }
   </style>
 </head>
@@ -485,17 +485,17 @@
         </colgroup>
         <thead>
           <tr id="header-row">
-            <th class="col-owner" data-key="owner" aria-sort="none">Owner</th>
-            <th class="col-name" data-key="name" aria-sort="none">Name</th>
-            <th class="col-license" data-key="license" aria-sort="none">License</th>
-            <th class="col-archived" data-key="archived" aria-sort="none">Archived</th>
-            <th class="col-language" data-key="language" aria-sort="none">Language</th>
-            <th class="col-stars numeric" data-key="stargazersCount" aria-sort="none">Stars</th>
-            <th class="col-issues numeric" data-key="openIssuesCount" aria-sort="none">Issues</th>
-            <th class="col-forks numeric" data-key="forksCount" aria-sort="none">Forks</th>
-            <th class="col-created" data-key="createdAt" aria-sort="none">Created</th>
-            <th class="col-updated" data-key="updatedAt" aria-sort="none">Updated</th>
-            <th class="col-pushed" data-key="pushedAt" aria-sort="none">Pushed</th>
+            <th class="col-owner" data-key="owner" aria-sort="none" title="Owner">Owner</th>
+            <th class="col-name" data-key="name" aria-sort="none" title="Name">Name</th>
+            <th class="col-license" data-key="license" aria-sort="none" title="License">License</th>
+            <th class="col-archived" data-key="archived" aria-sort="none" title="Archived">Archived</th>
+            <th class="col-language" data-key="language" aria-sort="none" title="Language">Language</th>
+            <th class="col-stars numeric" data-key="stargazersCount" aria-sort="none" title="Stars">Stars</th>
+            <th class="col-issues numeric" data-key="openIssuesCount" aria-sort="none" title="Open Issues">Issues</th>
+            <th class="col-forks numeric" data-key="forksCount" aria-sort="none" title="Forks">Forks</th>
+            <th class="col-created" data-key="createdAt" aria-sort="none" title="Created">Created</th>
+            <th class="col-updated" data-key="updatedAt" aria-sort="none" title="Updated">Updated</th>
+            <th class="col-pushed" data-key="pushedAt" aria-sort="none" title="Pushed">Pushed</th>
           </tr>
         </thead>
       </table>
@@ -524,6 +524,7 @@
     var OVERSCAN = 10;
     var allRepos = [];
     var displayRepos = [];
+    var seenRepos = {};
     var sortKey = 'stargazersCount';
     var sortAsc = false;
     var streaming = true;
@@ -560,17 +561,18 @@
       'Other': '#94a3b8'
     };
 
-    // Dashboard toggle with localStorage
+    // Dashboard toggle with localStorage (default: collapsed)
     (function () {
-      var hidden = localStorage.getItem('dashHidden') === '1';
-      if (hidden) {
+      var shown = localStorage.getItem('dashShown') === '1';
+      if (!shown) {
         dashEl.classList.add('hidden');
         dashToggle.textContent = 'Show Dashboard';
       }
       dashToggle.addEventListener('click', function () {
         var isHidden = dashEl.classList.toggle('hidden');
         dashToggle.textContent = isHidden ? 'Show Dashboard' : 'Hide Dashboard';
-        localStorage.setItem('dashHidden', isHidden ? '1' : '0');
+        localStorage.setItem('dashShown', isHidden ? '0' : '1');
+        if (!isHidden) renderDashboard();
       });
     })();
 
@@ -683,7 +685,7 @@
       var container = document.getElementById(containerId);
       var svgNS = 'http://www.w3.org/2000/svg';
       var years = YEAR_MAX - YEAR_MIN + 1;
-      var w = 600, h = 180, pad = 30, padBottom = 20;
+      var w = 600, h = 120, pad = 30, padBottom = 18;
       var barW = Math.floor((w - pad - 10) / years) - 2;
 
       var svg = document.createElementNS(svgNS, 'svg');
@@ -739,7 +741,7 @@
       var container = document.getElementById('chart-licenses');
       var svgNS = 'http://www.w3.org/2000/svg';
       var html = '<div class="donut-wrap">';
-      html += '<svg class="donut-svg" viewBox="0 0 140 140" id="donut-svg"></svg>';
+      html += '<svg class="donut-svg" viewBox="0 0 100 100" id="donut-svg"></svg>';
       html += '<div class="donut-legend" id="donut-legend"></div></div>';
       container.innerHTML = html;
 
@@ -747,14 +749,14 @@
       var categories = ['MIT License', 'Apache License 2.0', 'None', 'GPL', 'BSD', 'Other'];
       for (var i = 0; i < categories.length; i++) {
         var circle = document.createElementNS(svgNS, 'circle');
-        circle.setAttribute('cx', '70');
-        circle.setAttribute('cy', '70');
-        circle.setAttribute('r', '50');
+        circle.setAttribute('cx', '50');
+        circle.setAttribute('cy', '50');
+        circle.setAttribute('r', '35');
         circle.setAttribute('stroke', DONUT_COLORS[categories[i]]);
-        circle.setAttribute('stroke-dasharray', '0 314.16');
+        circle.setAttribute('stroke-dasharray', '0 219.91');
         circle.setAttribute('stroke-dashoffset', '0');
         circle.setAttribute('data-cat', categories[i]);
-        circle.setAttribute('transform', 'rotate(-90 70 70)');
+        circle.setAttribute('transform', 'rotate(-90 50 50)');
         svg.appendChild(circle);
       }
     }
@@ -805,7 +807,7 @@
       var svg = container.querySelector('svg');
       if (!svg) return;
 
-      var h = 180, padBottom = 20;
+      var h = 120, padBottom = 18;
       var maxVal = 0;
       for (var yr = YEAR_MIN; yr <= YEAR_MAX; yr++) {
         var v = yearData[yr] || 0;
@@ -853,7 +855,9 @@
 
       var rows = container.querySelectorAll('.hbar-row');
       for (var j = 0; j < sorted.length && j < rows.length; j++) {
-        rows[j].querySelector('.hbar-label').textContent = sorted[j].name;
+        var label = rows[j].querySelector('.hbar-label');
+        label.textContent = sorted[j].name;
+        label.title = sorted[j].name;
         rows[j].querySelector('.hbar-fill').style.width = ((sorted[j].count / maxCount) * 100) + '%';
         rows[j].querySelector('.hbar-count').textContent = sorted[j].count.toLocaleString();
       }
@@ -870,7 +874,7 @@
         total += stats.licenseCounts[categories[i]] || 0;
       }
 
-      var circumference = 2 * Math.PI * 50; // ~314.16
+      var circumference = 2 * Math.PI * 35; // ~219.91
       var offset = 0;
       var circles = svg.querySelectorAll('circle');
       var legendHtml = '';
@@ -920,9 +924,11 @@
       for (var j = 0; j < top.length && j < items.length; j++) {
         var r = top[j];
         items[j].querySelector('.starred-rank').textContent = (j + 1);
+        var fullName = (r.owner || '') + '/' + (r.name || '');
         var a = items[j].querySelector('.starred-name a');
         a.href = r.url || '#';
-        a.textContent = (r.owner || '') + '/' + (r.name || '');
+        a.textContent = fullName;
+        a.title = fullName;
         items[j].querySelector('.starred-bar-fill').style.width = (((r.stargazersCount || 0) / maxStars) * 100) + '%';
         items[j].querySelector('.starred-stars').textContent = (r.stargazersCount || 0).toLocaleString();
       }
@@ -1028,9 +1034,17 @@
 
         function flushBatch() {
           if (batch.length === 0) return;
-          var items = batch;
+          var raw = batch;
           batch = [];
-          for (var i = 0; i < items.length; i++) allRepos.push(items[i]);
+          var items = [];
+          for (var i = 0; i < raw.length; i++) {
+            var key = (raw[i].owner || '') + '/' + (raw[i].name || '');
+            if (!seenRepos[key]) {
+              seenRepos[key] = 1;
+              allRepos.push(raw[i]);
+              items.push(raw[i]);
+            }
+          }
 
           // Update dashboard stats incrementally
           updateStats(items);
@@ -1223,6 +1237,7 @@
 
       // Owner
       var td0 = document.createElement('td');
+      td0.title = repo.owner || '';
       var a0 = document.createElement('a');
       a0.href = 'https://github.com/' + encodeURIComponent(repo.owner || '');
       a0.textContent = repo.owner || '';
@@ -1231,6 +1246,7 @@
 
       // Name
       var td1 = document.createElement('td');
+      td1.title = repo.name || '';
       var a1 = document.createElement('a');
       a1.href = repo.url || '#';
       a1.textContent = repo.name || '';
@@ -1239,6 +1255,8 @@
 
       // License
       var td2 = document.createElement('td');
+      var licText = (repo.license && repo.license.name) || 'None';
+      td2.title = licText;
       if (repo.license && repo.license.name) {
         var a2 = document.createElement('a');
         if (repo.license.name === 'Other') {
@@ -1268,6 +1286,7 @@
       // Language
       var td4 = document.createElement('td');
       td4.textContent = repo.language || '';
+      td4.title = repo.language || '';
       tr.appendChild(td4);
 
       // Stars
@@ -1291,16 +1310,19 @@
       // Created
       var td8 = document.createElement('td');
       td8.textContent = formatDate(repo.createdAt);
+      td8.title = formatDate(repo.createdAt);
       tr.appendChild(td8);
 
       // Updated
       var td9 = document.createElement('td');
       td9.textContent = formatDate(repo.updatedAt);
+      td9.title = formatDate(repo.updatedAt);
       tr.appendChild(td9);
 
       // Pushed
       var td10 = document.createElement('td');
       td10.textContent = formatDate(repo.pushedAt);
+      td10.title = formatDate(repo.pushedAt);
       tr.appendChild(td10);
 
       return tr;
