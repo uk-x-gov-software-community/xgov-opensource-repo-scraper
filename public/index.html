@@ -26,16 +26,12 @@
       --row-height: 36px;
     }
 
-    html, body { height: 100%; }
-
     body {
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       font-size: 15px;
       line-height: 1.5;
       color: var(--text);
       background: var(--bg);
-      display: flex;
-      flex-direction: column;
     }
 
     a { color: var(--link); text-decoration: underline; }
@@ -90,17 +86,16 @@
 
     /* Table wrapper */
     .table-wrap {
-      flex: 1;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
+      position: relative;
     }
 
     /* Sticky header table */
     .table-header-wrap {
       overflow-x: auto;
-      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--bg);
     }
     .table-header {
       width: 100%;
@@ -165,10 +160,7 @@
 
     /* Scroll viewport */
     #scroll-viewport {
-      flex: 1;
-      overflow-y: auto;
       overflow-x: auto;
-      min-height: 0;
     }
 
     #spacer { position: relative; min-width: 1100px; }
@@ -234,9 +226,6 @@
       padding: 20px 24px 24px;
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      overflow-y: auto;
-      max-height: 45vh;
-      flex-shrink: 0;
     }
     #dashboard.hidden { display: none; }
 
@@ -948,6 +937,9 @@
     viewport.addEventListener('scroll', function () {
       headerScroll.scrollLeft = viewport.scrollLeft;
     });
+    headerScroll.addEventListener('scroll', function () {
+      viewport.scrollLeft = headerScroll.scrollLeft;
+    });
 
     // --- Streaming JSON Parser ---
 
@@ -1109,7 +1101,6 @@
       displayRepos = filterRepos(allRepos);
       sortRepos(displayRepos);
       updateSpacer();
-      viewport.scrollTop = 0;
       lastStart = lastEnd = -1;
       renderRows();
       updateStatus();
@@ -1196,8 +1187,6 @@
     }
 
     function renderRows() {
-      var scrollTop = viewport.scrollTop;
-      var viewHeight = viewport.clientHeight;
       var totalRows = displayRepos.length;
 
       if (totalRows === 0) {
@@ -1209,8 +1198,13 @@
         return;
       }
 
-      var startIdx = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
-      var endIdx = Math.min(totalRows, Math.ceil((scrollTop + viewHeight) / ROW_HEIGHT) + OVERSCAN);
+      // Calculate visible area relative to the spacer using window scroll
+      var rect = spacer.getBoundingClientRect();
+      var scrollIntoSpacer = Math.max(0, -rect.top);
+      var viewHeight = window.innerHeight;
+
+      var startIdx = Math.max(0, Math.floor(scrollIntoSpacer / ROW_HEIGHT) - OVERSCAN);
+      var endIdx = Math.min(totalRows, Math.ceil((scrollIntoSpacer + viewHeight) / ROW_HEIGHT) + OVERSCAN);
 
       if (startIdx === lastStart && endIdx === lastEnd) return;
       lastStart = startIdx;
@@ -1336,8 +1330,8 @@
       }
     }
 
-    // Scroll handler with rAF throttle
-    viewport.addEventListener('scroll', function () {
+    // Scroll handler with rAF throttle (window scroll for virtual rows)
+    window.addEventListener('scroll', function () {
       if (!rafScroll) {
         rafScroll = true;
         requestAnimationFrame(function () {
