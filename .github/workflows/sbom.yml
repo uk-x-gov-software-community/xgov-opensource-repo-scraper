@@ -28,7 +28,9 @@ jobs:
           cache: 'npm'
       - run: npm ci --omit=dev
       - name: Download published repos.json
-        run: curl -sSf https://uk-x-gov-software-community.github.io/xgov-opensource-repo-scraper/repos.json -o repos.json
+        run: |
+          curl -sSfL https://uk-x-gov-software-community.github.io/xgov-opensource-repo-scraper/repos.json -o repos.json
+          node -e "const r = JSON.parse(require('fs').readFileSync('repos.json','utf8')); console.log(r.length + ' repos loaded')"
       - name: Restore SBOM cache
         uses: actions/cache@v4
         with:
