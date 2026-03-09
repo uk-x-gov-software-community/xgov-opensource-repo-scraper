@@ -216,13 +216,236 @@
       font-size: 16px;
     }
 
+    /* Dashboard toggle */
+    .dash-toggle {
+      padding: 5px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .dash-toggle:hover { background: var(--surface); color: var(--text); }
+
+    /* Dashboard */
+    #dashboard {
+      padding: 20px 24px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      overflow-y: auto;
+      max-height: 80vh;
+    }
+    #dashboard.hidden { display: none; }
+
+    .stat-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 14px 16px;
+      border-left: 4px solid var(--accent);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .stat-card.green { border-left-color: var(--success); }
+    .stat-card.amber { border-left-color: var(--focus); }
+    .stat-card.red { border-left-color: var(--error); }
+    .stat-card .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+    }
+    .stat-card .stat-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .stat-card .stat-sub {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .chart-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .dash-panel {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .dash-panel h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    /* SVG bar charts */
+    .bar-chart-svg { width: 100%; height: 180px; display: block; }
+    .bar-chart-svg rect.bar {
+      fill: var(--accent);
+      transition: height 0.3s ease, y 0.3s ease;
+    }
+    .bar-chart-svg rect.bar:hover { fill: var(--link-hover); }
+    .bar-chart-svg text { fill: var(--text-secondary); font-size: 10px; }
+    .bar-chart-svg text.bar-val { fill: var(--text); font-size: 9px; font-weight: 600; }
+    .bar-chart-svg line.axis { stroke: var(--border); stroke-width: 1; }
+
+    /* Horizontal bars */
+    .hbar-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 13px;
+      gap: 8px;
+    }
+    .hbar-label {
+      width: 110px;
+      text-align: right;
+      flex-shrink: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text);
+      font-weight: 500;
+    }
+    .hbar-track {
+      flex: 1;
+      height: 20px;
+      background: var(--surface);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .hbar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+      min-width: 0;
+    }
+    .hbar-count {
+      width: 50px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      color: var(--text-secondary);
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    /* Donut chart */
+    .donut-wrap {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .donut-svg { width: 140px; height: 140px; flex-shrink: 0; }
+    .donut-svg circle {
+      fill: none;
+      stroke-width: 28;
+      transition: stroke-dasharray 0.4s ease, stroke-dashoffset 0.4s ease;
+    }
+    .donut-legend { flex: 1; font-size: 13px; }
+    .donut-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .donut-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .donut-legend-label { flex: 1; color: var(--text); }
+    .donut-legend-count {
+      font-variant-numeric: tabular-nums;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    /* Top starred */
+    .starred-list { list-style: none; }
+    .starred-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .starred-item:last-child { border-bottom: none; }
+    .starred-rank {
+      width: 20px;
+      text-align: center;
+      font-weight: 700;
+      color: var(--text-secondary);
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    .starred-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .starred-name a { color: var(--link); text-decoration: none; }
+    .starred-name a:hover { text-decoration: underline; }
+    .starred-bar-track {
+      width: 60px;
+      height: 14px;
+      background: var(--surface);
+      border-radius: 3px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .starred-bar-fill {
+      height: 100%;
+      background: var(--focus);
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+    .starred-stars {
+      width: 55px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: var(--text);
+      flex-shrink: 0;
+    }
+
     /* Responsive */
+    @media (max-width: 768px) {
+      .chart-row { grid-template-columns: 1fr; }
+      .donut-wrap { flex-direction: column; }
+      .stat-cards { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+    }
     @media (max-width: 640px) {
       header { padding: 14px 16px 12px; }
       header h1 { font-size: 22px; }
       .toolbar { padding: 10px 16px; }
       #search { width: 100%; }
       .table-header th, .vtable td { font-size: 12px; padding: 0 8px; }
+      #dashboard { padding: 14px 16px 18px; }
+      .stat-card .stat-value { font-size: 22px; }
+      .hbar-label { width: 80px; font-size: 12px; }
     }
   </style>
 </head>
@@ -242,7 +465,24 @@
   <div class="toolbar">
     <span class="status" id="status">Loading&hellip;</span>
     <input type="search" id="search" placeholder="Filter repos&hellip;" aria-label="Filter repositories by owner, name, description, or language" disabled>
+    <button class="dash-toggle" id="dash-toggle" type="button">Hide Dashboard</button>
   </div>
+
+  <section id="dashboard">
+    <div class="stat-cards" id="stat-cards"></div>
+    <div class="chart-row">
+      <div class="dash-panel"><h3>Repos Created Per Year</h3><div id="chart-created"></div></div>
+      <div class="dash-panel"><h3>Push Activity by Year</h3><div id="chart-pushed"></div></div>
+    </div>
+    <div class="chart-row">
+      <div class="dash-panel"><h3>Top 10 Languages</h3><div id="chart-langs"></div></div>
+      <div class="dash-panel"><h3>Top 10 Organisations</h3><div id="chart-orgs"></div></div>
+    </div>
+    <div class="chart-row">
+      <div class="dash-panel"><h3>License Breakdown</h3><div id="chart-licenses"></div></div>
+      <div class="dash-panel"><h3>Most Starred Repos</h3><div id="chart-starred"></div></div>
+    </div>
+  </section>
 
   <div class="error-banner" id="error-banner"></div>
 
@@ -314,6 +554,395 @@
     var headerRow = document.getElementById('header-row');
     var headerScroll = document.getElementById('header-scroll');
 
+    // --- Dashboard ---
+    var dashEl = document.getElementById('dashboard');
+    var dashToggle = document.getElementById('dash-toggle');
+    var stats = {
+      total: 0, archived: 0, noLicense: 0, totalStars: 0, active: 0,
+      orgs: {}, langCounts: {}, orgCounts: {}, licenseCounts: {},
+      createdByYear: {}, pushedByYear: {}, topStarred: []
+    };
+    var YEAR_MIN = 2008, YEAR_MAX = 2026;
+    var DONUT_COLORS = {
+      'MIT License': '#3b82f6',
+      'Apache License 2.0': '#f59e0b',
+      'None': '#dc2626',
+      'GPL': '#16a34a',
+      'BSD': '#8b5cf6',
+      'Other': '#94a3b8'
+    };
+
+    // Dashboard toggle with localStorage
+    (function () {
+      var hidden = localStorage.getItem('dashHidden') === '1';
+      if (hidden) {
+        dashEl.classList.add('hidden');
+        dashToggle.textContent = 'Show Dashboard';
+      }
+      dashToggle.addEventListener('click', function () {
+        var isHidden = dashEl.classList.toggle('hidden');
+        dashToggle.textContent = isHidden ? 'Show Dashboard' : 'Hide Dashboard';
+        localStorage.setItem('dashHidden', isHidden ? '1' : '0');
+      });
+    })();
+
+    function updateStats(items) {
+      var now = new Date();
+      var oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+      for (var i = 0; i < items.length; i++) {
+        var r = items[i];
+        stats.total++;
+        if (r.archived) stats.archived++;
+        var licName = (r.license && r.license.name) || '';
+        if (!licName) stats.noLicense++;
+        stats.totalStars += (r.stargazersCount || 0);
+        if (r.owner) stats.orgs[r.owner] = 1;
+
+        // Active: pushed in last 12 months
+        if (r.pushedAt) {
+          var pushed = new Date(r.pushedAt);
+          if (pushed >= oneYearAgo) stats.active++;
+        }
+
+        // Language
+        if (r.language) {
+          stats.langCounts[r.language] = (stats.langCounts[r.language] || 0) + 1;
+        }
+
+        // Org
+        if (r.owner) {
+          stats.orgCounts[r.owner] = (stats.orgCounts[r.owner] || 0) + 1;
+        }
+
+        // License categorization
+        var lcat = categorizeLicense(licName);
+        stats.licenseCounts[lcat] = (stats.licenseCounts[lcat] || 0) + 1;
+
+        // Created by year
+        if (r.createdAt) {
+          var cy = new Date(r.createdAt).getFullYear();
+          if (cy >= YEAR_MIN && cy <= YEAR_MAX) {
+            stats.createdByYear[cy] = (stats.createdByYear[cy] || 0) + 1;
+          }
+        }
+
+        // Pushed by year
+        if (r.pushedAt) {
+          var py = new Date(r.pushedAt).getFullYear();
+          if (py >= YEAR_MIN && py <= YEAR_MAX) {
+            stats.pushedByYear[py] = (stats.pushedByYear[py] || 0) + 1;
+          }
+        }
+
+        // Top starred (maintain sorted top 8)
+        var sc = r.stargazersCount || 0;
+        if (sc > 0) {
+          if (stats.topStarred.length < 8 || sc > stats.topStarred[stats.topStarred.length - 1].stargazersCount) {
+            stats.topStarred.push(r);
+            stats.topStarred.sort(function (a, b) { return (b.stargazersCount || 0) - (a.stargazersCount || 0); });
+            if (stats.topStarred.length > 8) stats.topStarred.length = 8;
+          }
+        }
+      }
+    }
+
+    function categorizeLicense(name) {
+      if (!name) return 'None';
+      if (name.indexOf('MIT') !== -1) return 'MIT License';
+      if (name.indexOf('Apache') !== -1) return 'Apache License 2.0';
+      if (name.indexOf('GPL') !== -1 || name.indexOf('GNU') !== -1 || name.indexOf('AGPL') !== -1 || name.indexOf('LGPL') !== -1) return 'GPL';
+      if (name.indexOf('BSD') !== -1) return 'BSD';
+      if (name === 'Other' || name === 'NOASSERTION') return 'Other';
+      return 'Other';
+    }
+
+    // --- Init Dashboard DOM (called once) ---
+    function initDashboard() {
+      // Stat cards
+      var cardsHtml = '';
+      var cardDefs = [
+        { id: 'stat-total', label: 'Total Repos', cls: '', subId: 'sub-total' },
+        { id: 'stat-stars', label: 'Total Stars', cls: '', subId: 'sub-stars' },
+        { id: 'stat-active', label: 'Active', cls: 'green', subId: 'sub-active' },
+        { id: 'stat-archived', label: 'Archived', cls: 'amber', subId: 'sub-archived' },
+        { id: 'stat-nolicense', label: 'No License', cls: 'red', subId: 'sub-nolicense' }
+      ];
+      for (var i = 0; i < cardDefs.length; i++) {
+        var c = cardDefs[i];
+        cardsHtml += '<div class="stat-card ' + c.cls + '">' +
+          '<div class="stat-value" id="' + c.id + '">0</div>' +
+          '<div class="stat-label">' + c.label + '</div>' +
+          '<div class="stat-sub" id="' + c.subId + '">&nbsp;</div></div>';
+      }
+      document.getElementById('stat-cards').innerHTML = cardsHtml;
+
+      // SVG bar charts
+      initBarChart('chart-created');
+      initBarChart('chart-pushed');
+
+      // Horizontal bar containers
+      document.getElementById('chart-langs').innerHTML = '<div id="hbars-langs"></div>';
+      document.getElementById('chart-orgs').innerHTML = '<div id="hbars-orgs"></div>';
+
+      // Donut
+      initDonut();
+
+      // Top starred
+      document.getElementById('chart-starred').innerHTML = '<ol class="starred-list" id="starred-list"></ol>';
+    }
+
+    function initBarChart(containerId) {
+      var container = document.getElementById(containerId);
+      var svgNS = 'http://www.w3.org/2000/svg';
+      var years = YEAR_MAX - YEAR_MIN + 1;
+      var w = 600, h = 180, pad = 30, padBottom = 20;
+      var barW = Math.floor((w - pad - 10) / years) - 2;
+
+      var svg = document.createElementNS(svgNS, 'svg');
+      svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+      svg.setAttribute('class', 'bar-chart-svg');
+      svg.setAttribute('role', 'img');
+
+      // Axis line
+      var axis = document.createElementNS(svgNS, 'line');
+      axis.setAttribute('class', 'axis');
+      axis.setAttribute('x1', pad); axis.setAttribute('y1', h - padBottom);
+      axis.setAttribute('x2', w - 5); axis.setAttribute('y2', h - padBottom);
+      svg.appendChild(axis);
+
+      for (var yr = YEAR_MIN; yr <= YEAR_MAX; yr++) {
+        var idx = yr - YEAR_MIN;
+        var x = pad + idx * (barW + 2);
+
+        var rect = document.createElementNS(svgNS, 'rect');
+        rect.setAttribute('class', 'bar');
+        rect.setAttribute('x', x);
+        rect.setAttribute('y', h - padBottom);
+        rect.setAttribute('width', barW);
+        rect.setAttribute('height', 0);
+        rect.setAttribute('data-year', yr);
+        svg.appendChild(rect);
+
+        // Value text above bar
+        var valText = document.createElementNS(svgNS, 'text');
+        valText.setAttribute('class', 'bar-val');
+        valText.setAttribute('x', x + barW / 2);
+        valText.setAttribute('y', h - padBottom - 2);
+        valText.setAttribute('text-anchor', 'middle');
+        valText.setAttribute('data-year-val', yr);
+        svg.appendChild(valText);
+
+        // Year label (show every other year to avoid crowding)
+        if (idx % 2 === 0) {
+          var label = document.createElementNS(svgNS, 'text');
+          label.setAttribute('x', x + barW / 2);
+          label.setAttribute('y', h - 4);
+          label.setAttribute('text-anchor', 'middle');
+          label.textContent = "'" + String(yr).slice(2);
+          svg.appendChild(label);
+        }
+      }
+
+      container.innerHTML = '';
+      container.appendChild(svg);
+    }
+
+    function initDonut() {
+      var container = document.getElementById('chart-licenses');
+      var svgNS = 'http://www.w3.org/2000/svg';
+      var html = '<div class="donut-wrap">';
+      html += '<svg class="donut-svg" viewBox="0 0 140 140" id="donut-svg"></svg>';
+      html += '<div class="donut-legend" id="donut-legend"></div></div>';
+      container.innerHTML = html;
+
+      var svg = document.getElementById('donut-svg');
+      var categories = ['MIT License', 'Apache License 2.0', 'None', 'GPL', 'BSD', 'Other'];
+      for (var i = 0; i < categories.length; i++) {
+        var circle = document.createElementNS(svgNS, 'circle');
+        circle.setAttribute('cx', '70');
+        circle.setAttribute('cy', '70');
+        circle.setAttribute('r', '50');
+        circle.setAttribute('stroke', DONUT_COLORS[categories[i]]);
+        circle.setAttribute('stroke-dasharray', '0 314.16');
+        circle.setAttribute('stroke-dashoffset', '0');
+        circle.setAttribute('data-cat', categories[i]);
+        circle.setAttribute('transform', 'rotate(-90 70 70)');
+        svg.appendChild(circle);
+      }
+    }
+
+    // --- Render Dashboard (mutates DOM in place) ---
+    function renderDashboard() {
+      if (dashEl.classList.contains('hidden')) return;
+      var s = stats;
+      var orgCount = Object.keys(s.orgs).length;
+
+      // Stat cards
+      document.getElementById('stat-total').textContent = s.total.toLocaleString();
+      document.getElementById('sub-total').textContent = 'across ' + orgCount + ' organisations';
+
+      document.getElementById('stat-stars').textContent = s.totalStars.toLocaleString();
+      var avgStars = s.total > 0 ? (s.totalStars / s.total).toFixed(1) : '0';
+      document.getElementById('sub-stars').textContent = avgStars + ' avg per repo';
+
+      document.getElementById('stat-active').textContent = s.active.toLocaleString();
+      var activePct = s.total > 0 ? ((s.active / s.total) * 100).toFixed(1) : '0';
+      document.getElementById('sub-active').textContent = activePct + '% of all repos';
+
+      document.getElementById('stat-archived').textContent = s.archived.toLocaleString();
+      var archPct = s.total > 0 ? ((s.archived / s.total) * 100).toFixed(1) : '0';
+      document.getElementById('sub-archived').textContent = archPct + '% of all repos';
+
+      document.getElementById('stat-nolicense').textContent = s.noLicense.toLocaleString();
+      var nlPct = s.total > 0 ? ((s.noLicense / s.total) * 100).toFixed(1) : '0';
+      document.getElementById('sub-nolicense').textContent = nlPct + '% — consider adding one';
+
+      // Bar charts
+      renderBarChart('chart-created', s.createdByYear);
+      renderBarChart('chart-pushed', s.pushedByYear);
+
+      // Horizontal bars
+      renderHorizontalBars('hbars-langs', s.langCounts, 10);
+      renderHorizontalBars('hbars-orgs', s.orgCounts, 10);
+
+      // Donut
+      renderDonut();
+
+      // Top starred
+      renderTopStarred();
+    }
+
+    function renderBarChart(containerId, yearData) {
+      var container = document.getElementById(containerId);
+      var svg = container.querySelector('svg');
+      if (!svg) return;
+
+      var h = 180, padBottom = 20;
+      var maxVal = 0;
+      for (var yr = YEAR_MIN; yr <= YEAR_MAX; yr++) {
+        var v = yearData[yr] || 0;
+        if (v > maxVal) maxVal = v;
+      }
+      var chartH = h - padBottom - 20;
+
+      var rects = svg.querySelectorAll('rect.bar');
+      var vals = svg.querySelectorAll('text.bar-val');
+      for (var i = 0; i < rects.length; i++) {
+        var year = +rects[i].getAttribute('data-year');
+        var count = yearData[year] || 0;
+        var barH = maxVal > 0 ? (count / maxVal) * chartH : 0;
+        rects[i].setAttribute('height', barH);
+        rects[i].setAttribute('y', h - padBottom - barH);
+
+        if (vals[i]) {
+          vals[i].textContent = count > 0 ? count : '';
+          vals[i].setAttribute('y', h - padBottom - barH - 3);
+        }
+      }
+    }
+
+    function renderHorizontalBars(containerId, counts, limit) {
+      var container = document.getElementById(containerId);
+      if (!container) return;
+
+      var sorted = Object.keys(counts).map(function (k) {
+        return { name: k, count: counts[k] };
+      }).sort(function (a, b) { return b.count - a.count; }).slice(0, limit);
+
+      var maxCount = sorted.length > 0 ? sorted[0].count : 1;
+
+      // Rebuild if count changed
+      if (container.children.length !== sorted.length) {
+        var html = '';
+        for (var i = 0; i < sorted.length; i++) {
+          html += '<div class="hbar-row">' +
+            '<span class="hbar-label"></span>' +
+            '<div class="hbar-track"><div class="hbar-fill"></div></div>' +
+            '<span class="hbar-count"></span></div>';
+        }
+        container.innerHTML = html;
+      }
+
+      var rows = container.querySelectorAll('.hbar-row');
+      for (var j = 0; j < sorted.length && j < rows.length; j++) {
+        rows[j].querySelector('.hbar-label').textContent = sorted[j].name;
+        rows[j].querySelector('.hbar-fill').style.width = ((sorted[j].count / maxCount) * 100) + '%';
+        rows[j].querySelector('.hbar-count').textContent = sorted[j].count.toLocaleString();
+      }
+    }
+
+    function renderDonut() {
+      var svg = document.getElementById('donut-svg');
+      var legend = document.getElementById('donut-legend');
+      if (!svg || !legend) return;
+
+      var categories = ['MIT License', 'Apache License 2.0', 'None', 'GPL', 'BSD', 'Other'];
+      var total = 0;
+      for (var i = 0; i < categories.length; i++) {
+        total += stats.licenseCounts[categories[i]] || 0;
+      }
+
+      var circumference = 2 * Math.PI * 50; // ~314.16
+      var offset = 0;
+      var circles = svg.querySelectorAll('circle');
+      var legendHtml = '';
+
+      for (var j = 0; j < categories.length; j++) {
+        var count = stats.licenseCounts[categories[j]] || 0;
+        var arc = total > 0 ? (count / total) * circumference : 0;
+
+        if (circles[j]) {
+          circles[j].setAttribute('stroke-dasharray', arc + ' ' + (circumference - arc));
+          circles[j].setAttribute('stroke-dashoffset', -offset);
+        }
+
+        offset += arc;
+
+        if (count > 0) {
+          var pct = ((count / total) * 100).toFixed(1);
+          legendHtml += '<div class="donut-legend-item">' +
+            '<span class="donut-swatch" style="background:' + DONUT_COLORS[categories[j]] + '"></span>' +
+            '<span class="donut-legend-label">' + categories[j] + '</span>' +
+            '<span class="donut-legend-count">' + count.toLocaleString() + ' (' + pct + '%)</span></div>';
+        }
+      }
+      legend.innerHTML = legendHtml;
+    }
+
+    function renderTopStarred() {
+      var list = document.getElementById('starred-list');
+      if (!list) return;
+
+      var top = stats.topStarred;
+      var maxStars = top.length > 0 ? (top[0].stargazersCount || 1) : 1;
+
+      if (list.children.length !== top.length) {
+        var html = '';
+        for (var i = 0; i < top.length; i++) {
+          html += '<li class="starred-item">' +
+            '<span class="starred-rank"></span>' +
+            '<span class="starred-name"><a></a></span>' +
+            '<span class="starred-bar-track"><span class="starred-bar-fill"></span></span>' +
+            '<span class="starred-stars"></span></li>';
+        }
+        list.innerHTML = html;
+      }
+
+      var items = list.querySelectorAll('.starred-item');
+      for (var j = 0; j < top.length && j < items.length; j++) {
+        var r = top[j];
+        items[j].querySelector('.starred-rank').textContent = (j + 1);
+        var a = items[j].querySelector('.starred-name a');
+        a.href = r.url || '#';
+        a.textContent = (r.owner || '') + '/' + (r.name || '');
+        items[j].querySelector('.starred-bar-fill').style.width = (((r.stargazersCount || 0) / maxStars) * 100) + '%';
+        items[j].querySelector('.starred-stars').textContent = (r.stargazersCount || 0).toLocaleString();
+      }
+    }
+
+    // Init dashboard on page load
+    initDashboard();
+
     // Sync horizontal scroll between header and body
     viewport.addEventListener('scroll', function () {
       headerScroll.scrollLeft = viewport.scrollLeft;
@@ -329,6 +958,7 @@
           // Fallback for browsers without streaming support
           return response.json().then(function (data) {
             allRepos = data || [];
+            updateStats(allRepos);
             displayRepos = allRepos.slice();
             streaming = false;
             progressBar.style.width = '100%';
@@ -411,12 +1041,16 @@
           batch = [];
           for (var i = 0; i < items.length; i++) allRepos.push(items[i]);
 
+          // Update dashboard stats incrementally
+          updateStats(items);
+
           if (streaming) {
             // During streaming, show repos in arrival order (no sort/filter)
             displayRepos = searchTerm ? filterRepos(allRepos) : allRepos;
             updateStatus();
             updateSpacer();
             renderRows();
+            renderDashboard();
           }
         }
 
@@ -498,6 +1132,9 @@
       // Apply default sort and rebuild
       rebuildDisplay();
       updateHeaderArrows();
+
+      // Final dashboard render
+      renderDashboard();
     }
 
     // --- Header click handlers ---
