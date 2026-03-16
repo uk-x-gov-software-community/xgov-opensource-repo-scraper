@@ -1,5 +1,5 @@
 import yaml from "js-yaml";
-import { writeFileSync, readFileSync, mkdirSync, existsSync } from "fs";
+import { writeFileSync, readFileSync, mkdirSync, existsSync, copyFileSync } from "fs";
 import { join } from "path";
 import { gzipSync } from "zlib";
 import { Command } from "commander";
@@ -518,6 +518,7 @@ program
   .requiredOption("--cache-dir <dir>", "SBOM cache directory")
   .option("--budget <n>", "Max API calls this run (default 95)", parseInt)
   .option("--max-hours <n>", "Time limit in hours (default 5)", parseFloat)
+  .option("--reverse", "Process new repos in reverse star order (low stars first)")
   .action(async (options) => {
     const repos = JSON.parse(readFileSync(options.reposFile, "utf8"));
     const cacheDir = options.cacheDir;
@@ -566,8 +567,14 @@ program
     }
 
     // Within each tier, sort by stars descending (most popular first)
-    newRepos.sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0));
-    stale.sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0));
+    // --reverse: process from low-star end so local runs don't overlap with CI
+    if (options.reverse) {
+      newRepos.sort((a, b) => (a.stargazersCount || 0) - (b.stargazersCount || 0));
+      stale.sort((a, b) => (a.stargazersCount || 0) - (b.stargazersCount || 0));
+    } else {
+      newRepos.sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0));
+      stale.sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0));
+    }
 
     const queue = [...changed, ...newRepos, ...stale];
     console.log(
@@ -653,6 +660,53 @@ program
     console.log(
       `SBOM fetch complete in ${elapsed}s: ${apiCalls} API calls, ${okCount} ok, ${notFoundCount} not found, ${errorCount} errors`
     );
+  });
+
+// ---------- merge-sbom-cache command ----------
+
+program
+  .command("merge-sbom-cache")
+  .description("Merge a supplementary SBOM cache into the primary cache")
+  .requiredOption("--primary <dir>", "Primary cache directory")
+  .requiredOption("--supplement <dir>", "Supplementary cache directory to merge in")
+  .action(async (options) => {
+    const primaryDir = options.primary;
+    const supplementDir = options.supplement;
+
+    // Load manifests
+    const primaryManifestPath = join(primaryDir, "sbom-manifest.json");
+    const supplementManifestPath = join(supplementDir, "sbom-manifest.json");
+
+    let primaryManifest = {};
+    if (existsSync(primaryManifestPath)) {
+      primaryManifest = JSON.parse(readFileSync(primaryManifestPath, "utf8"));
+    }
+    let supplementManifest = {};
+    if (existsSync(supplementManifestPath)) {
+      supplementManifest = JSON.parse(readFileSync(supplementManifestPath, "utf8"));
+    }
+
+    let added = 0;
+    let skipped = 0;
+    for (const [key, entry] of Object.entries(supplementManifest)) {
+      if (!primaryManifest[key]) {
+        primaryManifest[key] = entry;
+        // Copy SPDX file if it exists
+        const [owner, name] = key.split("/");
+        const srcPath = join(supplementDir, "spdx", owner, `${name}.json`);
+        if (existsSync(srcPath)) {
+          const destDir = join(primaryDir, "spdx", owner);
+          mkdirSync(destDir, { recursive: true });
+          copyFileSync(srcPath, join(destDir, `${name}.json`));
+        }
+        added++;
+      } else {
+        skipped++;
+      }
+    }
+
+    writeFileSync(primaryManifestPath, JSON.stringify(primaryManifest, null, 2));
+    console.log(`Merge complete: ${added} added, ${skipped} already present`);
   });
 
 // ---------- publish-sboms command ----------

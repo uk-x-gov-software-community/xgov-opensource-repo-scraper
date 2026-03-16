@@ -38,6 +38,19 @@ jobs:
           key: sbom-cache-${{ github.run_id }}
           restore-keys: |
             sbom-cache-
+      - name: Merge supplementary SBOM cache (if available)
+        run: |
+          if gh release download sbom-supplement -p 'sbom-supplement.tar.gz' -D /tmp 2>/dev/null; then
+            echo "Downloaded supplementary cache, merging..."
+            mkdir -p /tmp/sbom-supplement
+            tar -xzf /tmp/sbom-supplement.tar.gz -C /tmp/sbom-supplement
+            node index.js merge-sbom-cache --primary ./sbom-cache --supplement /tmp/sbom-supplement
+            rm -rf /tmp/sbom-supplement /tmp/sbom-supplement.tar.gz
+          else
+            echo "No supplementary cache release found, skipping merge"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Fetch SBOMs (incremental)
         run: node index.js fetch-sboms --repos-file ./repos.json --cache-dir ./sbom-cache --budget 95 --max-hours 1
         env:
