@@ -605,9 +605,11 @@ program
 
       const key = `${repo.owner}/${repo.name}`;
       const sbomUrl = `https://api.github.com/repos/${repo.owner}/${repo.name}/dependency-graph/sbom`;
+      let lastStatus = 0;
 
       try {
         const { status, data, headers } = await restFetch(sbomUrl);
+        lastStatus = status;
         apiCalls++;
 
         if (status === 200) {
@@ -658,8 +660,15 @@ program
         console.error(`  [err] ${key}: ${err.message}`);
       }
 
-      // Delay between requests to stay under rate limit
-      await delay(SBOM_DELAY_MS);
+      // Save manifest every 50 requests so progress isn't lost
+      if (apiCalls % 50 === 0) {
+        writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+      }
+
+      // Only delay after successful SBOM fetches (404s don't consume rate limit)
+      if (lastStatus === 200) {
+        await delay(SBOM_DELAY_MS);
+      }
     }
 
     // Save manifest
