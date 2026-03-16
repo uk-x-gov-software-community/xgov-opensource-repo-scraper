@@ -786,6 +786,69 @@ program
     writeFileSync(options.reposFile, JSON.stringify(repos, null, 2));
     mkdirSync(sbomOutputDir, { recursive: true });
 
+    // Build consolidated CycloneDX SBOM
+    const cdxComponents = [];
+    for (const repo of repos) {
+      if (!repo.sbom) continue;
+      const srcPath = join(cacheDir, "spdx", repo.owner, `${repo.name}.json`);
+      if (!existsSync(srcPath)) continue;
+      try {
+        const spdx = JSON.parse(readFileSync(srcPath, "utf8"));
+        const packages = spdx.sbom?.packages || [];
+        const deps = packages.map((pkg) => {
+          const purl = pkg.externalRefs?.find(
+            (r) => r.referenceType === "purl"
+          )?.referenceLocator;
+          return {
+            type: "library",
+            name: pkg.name,
+            version: pkg.versionInfo || undefined,
+            purl: purl || undefined,
+            licenses: pkg.licenseConcluded && pkg.licenseConcluded !== "NOASSERTION"
+              ? [{ license: { id: pkg.licenseConcluded } }]
+              : undefined,
+          };
+        });
+        cdxComponents.push({
+          type: "application",
+          name: `${repo.owner}/${repo.name}`,
+          version: "",
+          description: repo.description || undefined,
+          externalReferences: [
+            { type: "vcs", url: repo.url || `https://github.com/${repo.owner}/${repo.name}` },
+          ],
+          components: deps.length > 0 ? deps : undefined,
+        });
+      } catch {
+        // Skip corrupt SPDX files
+      }
+    }
+
+    const cdx = {
+      bomFormat: "CycloneDX",
+      specVersion: "1.5",
+      version: 1,
+      metadata: {
+        timestamp: new Date().toISOString(),
+        component: {
+          type: "application",
+          name: "uk-gov-open-source",
+          description: "Consolidated SBOM for UK government open source repositories",
+        },
+        tools: [{ name: "xgov-opensource-repo-scraper" }],
+      },
+      components: cdxComponents,
+    };
+
+    const cdxJson = JSON.stringify(cdx);
+    writeFileSync(
+      join(outputDir, "sbom.json.gz"),
+      gzipSync(cdxJson)
+    );
+    console.log(
+      `Published consolidated CycloneDX SBOM: ${cdxComponents.length} repos (${(cdxJson.length / 1024 / 1024).toFixed(1)}MB -> ${(gzipSync(cdxJson).length / 1024 / 1024).toFixed(1)}MB gzipped)`
+    );
+
     console.log(
       `Published ${copiedCount} SPDX SBOMs to ${sbomOutputDir}/`
     );
