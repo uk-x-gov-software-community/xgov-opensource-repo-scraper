@@ -98,7 +98,7 @@
     }
     .table-header {
       width: 100%;
-      min-width: 1100px;
+      min-width: 1200px;
       border-collapse: collapse;
       table-layout: fixed;
     }
@@ -146,13 +146,14 @@
 
     /* Column widths */
     .col-owner { width: 13%; }
-    .col-name { width: 16%; }
-    .col-license { width: 10%; }
+    .col-name { width: 15%; }
+    .col-license { width: 9%; }
     .col-archived { width: 6%; text-align: center; }
     .col-language { width: 9%; }
-    .col-stars { width: 7%; }
-    .col-issues { width: 7%; }
-    .col-forks { width: 7%; }
+    .col-stars { width: 6%; }
+    .col-issues { width: 6%; }
+    .col-forks { width: 6%; }
+    .col-sbom { width: 5%; text-align: center; }
     .col-created { width: 9%; }
     .col-updated { width: 9%; }
     .col-pushed { width: 9%; }
@@ -161,12 +162,12 @@
     #scroll-viewport {
     }
 
-    #spacer { position: relative; min-width: 1100px; }
+    #spacer { position: relative; min-width: 1200px; }
 
     /* Body table */
     .vtable {
       width: 100%;
-      min-width: 1100px;
+      min-width: 1200px;
       border-collapse: collapse;
       table-layout: fixed;
       position: absolute;
@@ -447,6 +448,7 @@
       then fetches all their repos via the GitHub API.
       <a href="https://github.com/uk-x-gov-software-community/xgov-opensource-repo-scraper">Pull requests welcome</a>.
       The raw data is available as <a href="./repos.json">repos.json</a> for your own analysis — prefer linking to it rather than downloading a copy, so your tools always use the latest data.
+      Individual <a href="./sbom/">SPDX SBOMs</a> are collected hourly via the GitHub dependency graph API.
     </p>
   </header>
 
@@ -480,8 +482,8 @@
         <colgroup>
           <col class="col-owner"><col class="col-name"><col class="col-license">
           <col class="col-archived"><col class="col-language"><col class="col-stars">
-          <col class="col-issues"><col class="col-forks"><col class="col-created">
-          <col class="col-updated"><col class="col-pushed">
+          <col class="col-issues"><col class="col-forks"><col class="col-sbom">
+          <col class="col-created"><col class="col-updated"><col class="col-pushed">
         </colgroup>
         <thead>
           <tr id="header-row">
@@ -493,6 +495,7 @@
             <th class="col-stars numeric" data-key="stargazersCount" aria-sort="none" title="Stars">Stars</th>
             <th class="col-issues numeric" data-key="openIssuesCount" aria-sort="none" title="Open Issues">Issues</th>
             <th class="col-forks numeric" data-key="forksCount" aria-sort="none" title="Forks">Forks</th>
+            <th class="col-sbom" data-key="sbom" aria-sort="none" title="SBOM">SBOM</th>
             <th class="col-created" data-key="createdAt" aria-sort="none" title="Created">Created</th>
             <th class="col-updated" data-key="updatedAt" aria-sort="none" title="Updated">Updated</th>
             <th class="col-pushed" data-key="pushedAt" aria-sort="none" title="Pushed">Pushed</th>
@@ -1306,6 +1309,18 @@
       td7.className = 'numeric';
       td7.textContent = formatNum(repo.forksCount);
       tr.appendChild(td7);
+
+      // SBOM
+      var tdSbom = document.createElement('td');
+      tdSbom.className = 'center';
+      if (repo.sbom) {
+        var aSbom = document.createElement('a');
+        aSbom.href = repo.sbom;
+        aSbom.textContent = 'SPDX';
+        aSbom.title = 'Download SPDX SBOM';
+        tdSbom.appendChild(aSbom);
+      }
+      tr.appendChild(tdSbom);
 
       // Created
       var td8 = document.createElement('td');
