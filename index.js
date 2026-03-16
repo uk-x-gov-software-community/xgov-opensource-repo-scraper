@@ -519,6 +519,7 @@ program
   .option("--budget <n>", "Max API calls this run (default 95)", parseInt)
   .option("--max-hours <n>", "Time limit in hours (default 5)", parseFloat)
   .option("--reverse", "Process new repos in reverse star order (low stars first)")
+  .option("--delay <ms>", "Delay between requests in ms (default 37000)", parseInt)
   .action(async (options) => {
     const repos = JSON.parse(readFileSync(options.reposFile, "utf8"));
     const cacheDir = options.cacheDir;
@@ -585,7 +586,7 @@ program
     let okCount = 0;
     let notFoundCount = 0;
     let errorCount = 0;
-    const SBOM_DELAY_MS = 37000; // 37 seconds between requests (100/hr rate limit)
+    const SBOM_DELAY_MS = options.delay ?? 37000; // default 37s between requests (100/hr rate limit)
 
     for (const repo of queue) {
       // Check budget
@@ -634,11 +635,18 @@ program
           console.log(`  [404] ${key}`);
         }
 
-        // Check rate limit headers — stop if exhausted
+        // Check rate limit headers — stop if exhausted, or adapt delay
         const remaining = headers.get("x-ratelimit-remaining");
+        const resetHeader = headers.get("x-ratelimit-reset");
         if (remaining !== null && parseInt(remaining, 10) === 0) {
-          console.log("Rate limit exhausted (x-ratelimit-remaining: 0), stopping");
-          break;
+          if (resetHeader) {
+            const waitSec = Math.max(0, parseInt(resetHeader, 10) - Math.floor(Date.now() / 1000)) + 5;
+            console.log(`Rate limit exhausted, waiting ${waitSec}s for reset...`);
+            await delay(waitSec * 1000);
+          } else {
+            console.log("Rate limit exhausted (x-ratelimit-remaining: 0), stopping");
+            break;
+          }
         }
       } catch (err) {
         manifest[key] = {
@@ -650,7 +658,7 @@ program
         console.error(`  [err] ${key}: ${err.message}`);
       }
 
-      // Delay between requests to stay under 100/hr rate limit
+      // Delay between requests to stay under rate limit
       await delay(SBOM_DELAY_MS);
     }
 
