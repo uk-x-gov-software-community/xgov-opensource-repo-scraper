@@ -842,10 +842,14 @@ program
 
     const cdxJson = JSON.stringify(cdx);
     const cdxGz = gzipSync(cdxJson);
-    writeFileSync(join(outputDir, "sbom.json"), cdxJson);
+    // Stub at old URL pointing to the gzipped version
+    writeFileSync(join(outputDir, "sbom.json"), JSON.stringify({
+      moved: "This file has moved to sbom.json.gz to reduce deploy size (~400MB -> ~40MB).",
+      url: "https://uk-x-gov-software-community.github.io/xgov-opensource-repo-scraper/sbom.json.gz"
+    }, null, 2));
     writeFileSync(join(outputDir, "sbom.json.gz"), cdxGz);
     console.log(
-      `Published consolidated CycloneDX SBOM: ${cdxComponents.length} repos (${(cdxJson.length / 1024 / 1024).toFixed(1)}MB, ${(cdxGz.length / 1024 / 1024).toFixed(1)}MB gzipped)`
+      `Published consolidated CycloneDX SBOM: ${cdxComponents.length} repos (${(cdxGz.length / 1024 / 1024).toFixed(1)}MB gzipped)`
     );
 
     console.log(
