@@ -841,12 +841,11 @@ program
     };
 
     const cdxJson = JSON.stringify(cdx);
-    writeFileSync(
-      join(outputDir, "sbom.json.gz"),
-      gzipSync(cdxJson)
-    );
+    const cdxGz = gzipSync(cdxJson);
+    writeFileSync(join(outputDir, "sbom.json"), cdxJson);
+    writeFileSync(join(outputDir, "sbom.json.gz"), cdxGz);
     console.log(
-      `Published consolidated CycloneDX SBOM: ${cdxComponents.length} repos (${(cdxJson.length / 1024 / 1024).toFixed(1)}MB -> ${(gzipSync(cdxJson).length / 1024 / 1024).toFixed(1)}MB gzipped)`
+      `Published consolidated CycloneDX SBOM: ${cdxComponents.length} repos (${(cdxJson.length / 1024 / 1024).toFixed(1)}MB, ${(cdxGz.length / 1024 / 1024).toFixed(1)}MB gzipped)`
     );
 
     console.log(
