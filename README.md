@@ -18,3 +18,5 @@ Or you can navigate it via the [webpage](https://uk-x-gov-software-community.git
 Or you can import the json dynamically into your favourite tool.
 To demonstrate this I've created [a Google Sheet](https://docs.google.com/spreadsheets/d/1S4k63hpb2oLEUPva1N2iTNi-NsyRKLystYGKd6zuLII/edit?usp=sharing) for this
 <img width="1758" alt="image" src="https://user-images.githubusercontent.com/715120/194125329-9bb868d6-793f-4da7-81d6-8bc6c766fe7d.png">
+
+You can also [explore the data with Datasette Lite](https://lite.datasette.io/?json=https://www.uk-x-gov-software-community.org.uk/xgov-opensource-repo-scraper/repos.json#/data/repos) which loads the JSON into a SQLite database in your browser via WebAssembly, giving you full SQL querying, filtering, and export capabilities with no server required.
