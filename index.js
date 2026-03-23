@@ -101,6 +101,7 @@ function buildRepoQuery(entries) {
           description
           url
           isArchived
+          isFork
           licenseInfo { key name spdxId }
           stargazerCount
           primaryLanguage { name }
@@ -137,6 +138,7 @@ function formatRepo(node) {
     description: node.description,
     url: node.url,
     archived: node.isArchived,
+    isFork: node.isFork,
     license: node.licenseInfo,
     stargazersCount: node.stargazerCount,
     language: node.primaryLanguage?.name ?? null,
