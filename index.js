@@ -446,20 +446,29 @@ program
 
 /**
  * Performs a REST API GET request with retry logic for rate limits and server errors.
- * Returns { status, data, headers } on success or 404.
+ * Returns { status, data, headers, location } where:
+ *   - data is parsed JSON for 2xx responses with a JSON body, else null
+ *   - location is the Location header for 3xx redirects (when redirect: "manual"), else null
+ * Treats 201, 202, 204, 3xx, and 404 as terminal (no retry).
  * Retries on 403/429 (rate limit) and 5xx (server error) with appropriate backoff.
+ *
+ * Options:
+ *   - redirect: "follow" (default) | "manual" — observe 3xx without auto-following.
+ *   - auth:    true (default) | false — when false, omits the Authorization header
+ *              (used for presigned download URLs that should not see GitHub credentials).
  */
-async function restFetch(url) {
+async function restFetch(url, { redirect = "follow", auth = true } = {}) {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     let resp;
     try {
-      resp = await fetch(url, {
-        headers: {
-          Authorization: `bearer ${GITHUB_TOKEN}`,
-          Accept: "application/vnd.github+json",
-          "User-Agent": "xgov-opensource-repo-scraper",
-        },
-      });
+      const headers = {
+        Accept: "application/vnd.github+json",
+        "User-Agent": "xgov-opensource-repo-scraper",
+      };
+      if (auth && GITHUB_TOKEN) {
+        headers.Authorization = `bearer ${GITHUB_TOKEN}`;
+      }
+      resp = await fetch(url, { headers, redirect });
     } catch (err) {
       const waitMs = Math.min(2000 * Math.pow(2, attempt), 60000);
       console.log(
@@ -469,9 +478,24 @@ async function restFetch(url) {
       continue;
     }
 
+    // 3xx redirect — caller decides what to do with Location
+    if (resp.status >= 300 && resp.status < 400) {
+      return {
+        status: resp.status,
+        data: null,
+        headers: resp.headers,
+        location: resp.headers.get("location"),
+      };
+    }
+
+    // 202 Accepted (async work in progress) and 204 No Content — terminal, no body
+    if (resp.status === 202 || resp.status === 204) {
+      return { status: resp.status, data: null, headers: resp.headers, location: null };
+    }
+
     // 404 is a valid "not found" response, not an error
     if (resp.status === 404) {
-      return { status: 404, data: null, headers: resp.headers };
+      return { status: 404, data: null, headers: resp.headers, location: null };
     }
 
     // Rate limit or abuse detection — retry with backoff
@@ -501,8 +525,9 @@ async function restFetch(url) {
       throw new Error(`REST HTTP ${resp.status}: ${await resp.text()}`);
     }
 
-    const data = await resp.json();
-    return { status: resp.status, data, headers: resp.headers };
+    const ct = resp.headers.get("content-type") || "";
+    const data = ct.includes("application/json") ? await resp.json() : null;
+    return { status: resp.status, data, headers: resp.headers, location: null };
   }
   throw new Error(`REST fetch failed after ${MAX_RETRIES} retries: ${url}`);
 }
@@ -510,6 +535,15 @@ async function restFetch(url) {
 // ---------- SBOM helper ----------
 
 // ---------- fetch-sboms command ----------
+//
+// GitHub's SBOM API is asynchronous (the legacy synchronous endpoint is
+// removed 2026-11-13). Each repo now needs two calls:
+//   1. generate-report → 201 with { sbom_url } that embeds an sbom-uuid
+//   2. fetch-report (the sbom_url) → 202 (still working) or 302 to a
+//      pre-signed URL hosting the bare SPDX JSON
+// SBOMs are retained ~7 days from kickoff. We persist the pending state
+// (sbom_url + requestedAt) in sbom-manifest.json so the hourly cron can
+// poll across runs rather than waiting in-process.
 
 program
   .command("fetch-sboms")
@@ -543,12 +577,20 @@ program
       }
     }
 
-    // Build priority queue:
-    //  1. Changed repos (pushedAt differs from last fetch)
-    //  2. New repos (never fetched)
-    //  3. Stale repos (fetched > 30 days ago — re-check in case GitHub added new manifest support)
-    const STALE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+    // Build priority queue with per-repo action:
+    //   poll    — pending entries ≤6 days old with the same pushedAt
+    //   kickoff — everything else that needs work
+    // Tiers in processing order:
+    //   1. polls    — clear async backlog first
+    //   2. changed  — pushedAt differs from manifest (incl. push-changed pending)
+    //   3. new      — never seen (star-sorted)
+    //   4. stale    — fetched >30 days ago (star-sorted)
+    // POLL_EXPIRY_MS is set under GitHub's ~7-day SBOM retention so we
+    // re-kick proactively rather than wasting a poll call on a dead URL.
+    const STALE_MS = 30 * 24 * 60 * 60 * 1000;
+    const POLL_EXPIRY_MS = 6 * 24 * 60 * 60 * 1000;
     const now = Date.now();
+    const polls = [];
     const changed = [];
     const newRepos = [];
     const stale = [];
@@ -559,45 +601,196 @@ program
       const entry = manifest[key];
 
       if (!entry) {
-        newRepos.push(repo);
+        newRepos.push({ repo, action: "kickoff" });
+      } else if (entry.status === "pending") {
+        const requestedAt = entry.requestedAt
+          ? new Date(entry.requestedAt).getTime()
+          : 0;
+        const expired = now - requestedAt > POLL_EXPIRY_MS;
+        const pushChanged = entry.pushedAt !== repo.pushedAt;
+        if (expired || pushChanged || !entry.sbomUrl) {
+          changed.push({ repo, action: "kickoff" });
+        } else {
+          polls.push({ repo, action: "poll", sbomUrl: entry.sbomUrl });
+        }
       } else if (entry.pushedAt !== repo.pushedAt) {
-        changed.push(repo);
+        changed.push({ repo, action: "kickoff" });
       } else if (now - new Date(entry.fetchedAt).getTime() > STALE_MS) {
-        stale.push(repo);
+        stale.push({ repo, action: "kickoff" });
       } else {
         skipped++;
       }
     }
 
-    // Within each tier, sort by stars descending (most popular first)
-    // --reverse: process from low-star end so local runs don't overlap with CI
-    if (options.reverse) {
-      newRepos.sort((a, b) => (a.stargazersCount || 0) - (b.stargazersCount || 0));
-      stale.sort((a, b) => (a.stargazersCount || 0) - (b.stargazersCount || 0));
-    } else {
-      newRepos.sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0));
-      stale.sort((a, b) => (b.stargazersCount || 0) - (a.stargazersCount || 0));
-    }
+    // Sort new/stale by stars; --reverse → low-star first so local and CI runs don't overlap
+    const starSort = options.reverse
+      ? (a, b) => (a.repo.stargazersCount || 0) - (b.repo.stargazersCount || 0)
+      : (a, b) => (b.repo.stargazersCount || 0) - (a.repo.stargazersCount || 0);
+    newRepos.sort(starSort);
+    stale.sort(starSort);
 
-    const queue = [...changed, ...newRepos, ...stale];
+    const queue = [...polls, ...changed, ...newRepos, ...stale];
     console.log(
-      `SBOM fetch queue: ${changed.length} changed, ${newRepos.length} new, ${stale.length} stale (>30d), ${skipped} fresh (budget: ${budget})`
+      `SBOM fetch queue: ${polls.length} polls, ${changed.length} changed, ${newRepos.length} new, ${stale.length} stale (>30d), ${skipped} fresh (budget: ${budget})`
     );
 
     let apiCalls = 0;
     let okCount = 0;
     let notFoundCount = 0;
     let errorCount = 0;
-    const SBOM_DELAY_MS = options.delay ?? 37000; // default 37s between requests (100/hr rate limit)
+    let kickedOffCount = 0;
+    let stillPendingCount = 0;
+    const SBOM_DELAY_MS = options.delay ?? 37000;
 
-    for (const repo of queue) {
-      // Check budget
+    const saveSpdx = (owner, name, bareSpdx) => {
+      const spdxDir = join(cacheDir, "spdx", owner);
+      mkdirSync(spdxDir, { recursive: true });
+      writeFileSync(
+        join(spdxDir, `${name}.json`),
+        JSON.stringify(bareSpdx, null, 2)
+      );
+    };
+    const markOk = (key, pushedAt) => {
+      manifest[key] = {
+        fetchedAt: new Date().toISOString(),
+        pushedAt,
+        status: "ok",
+      };
+    };
+    const markNotFound = (key, pushedAt) => {
+      manifest[key] = {
+        fetchedAt: new Date().toISOString(),
+        pushedAt,
+        status: "404",
+      };
+    };
+    const markError = (key, pushedAt) => {
+      manifest[key] = {
+        fetchedAt: new Date().toISOString(),
+        pushedAt,
+        status: "error",
+      };
+    };
+    const markPending = (key, pushedAt, sbomUrl) => {
+      manifest[key] = {
+        status: "pending",
+        sbomUrl,
+        requestedAt: new Date().toISOString(),
+        pushedAt,
+      };
+    };
+
+    // "stop" → caller should break the main loop (rate limit hit, no reset).
+    // "waited" → we slept until reset; carry on.
+    const checkRateLimit = async (headers) => {
+      const remaining = headers.get("x-ratelimit-remaining");
+      const resetHeader = headers.get("x-ratelimit-reset");
+      if (remaining !== null && parseInt(remaining, 10) === 0) {
+        if (resetHeader) {
+          const waitSec =
+            Math.max(0, parseInt(resetHeader, 10) - Math.floor(Date.now() / 1000)) +
+            5;
+          console.log(`Rate limit exhausted, waiting ${waitSec}s for reset...`);
+          await delay(waitSec * 1000);
+          return "waited";
+        }
+        return "stop";
+      }
+      return "ok";
+    };
+
+    const doKickoff = async (repo, key) => {
+      const url = `https://api.github.com/repos/${repo.owner}/${repo.name}/dependency-graph/sbom/generate-report`;
+      try {
+        const { status, data, headers } = await restFetch(url);
+        apiCalls++;
+        if (status === 201 && data?.sbom_url) {
+          markPending(key, repo.pushedAt, data.sbom_url);
+          kickedOffCount++;
+          console.log(`  [kick] ${key}`);
+        } else if (status === 201) {
+          markError(key, repo.pushedAt);
+          errorCount++;
+          console.log(`  [err]  ${key} (kickoff 201 without sbom_url)`);
+        } else if (status === 404) {
+          markNotFound(key, repo.pushedAt);
+          notFoundCount++;
+          console.log(`  [404]  ${key}`);
+        } else {
+          markError(key, repo.pushedAt);
+          errorCount++;
+          console.log(`  [err]  ${key} (kickoff status ${status})`);
+        }
+        const rl = await checkRateLimit(headers);
+        return { delay: status !== 404, stop: rl === "stop" };
+      } catch (err) {
+        markError(key, repo.pushedAt);
+        errorCount++;
+        console.error(`  [err]  ${key}: ${err.message}`);
+        return { delay: false, stop: false };
+      }
+    };
+
+    // 302 → follow Location to the presigned URL without auth and save bare SPDX.
+    // 202 → leave manifest entry untouched; counts as 1 API call.
+    // 404 → polling URL expired; signal fell-through so caller can re-kickoff.
+    const doPoll = async (repo, key, sbomUrl) => {
+      try {
+        const { status, headers, location } = await restFetch(sbomUrl, {
+          redirect: "manual",
+        });
+        apiCalls++;
+
+        if (status >= 300 && status < 400 && location) {
+          const downloadResp = await fetch(location, {
+            headers: { "User-Agent": "xgov-opensource-repo-scraper" },
+          });
+          if (!downloadResp.ok) {
+            markError(key, repo.pushedAt);
+            errorCount++;
+            console.error(
+              `  [err]  ${key}: presigned download ${downloadResp.status}`
+            );
+          } else {
+            const spdxBare = await downloadResp.json();
+            saveSpdx(repo.owner, repo.name, spdxBare);
+            markOk(key, repo.pushedAt);
+            okCount++;
+            console.log(`  [ok]   ${key}`);
+          }
+          const rl = await checkRateLimit(headers);
+          return { delay: true, stop: rl === "stop", fellThrough: false };
+        }
+
+        if (status === 202) {
+          stillPendingCount++;
+          console.log(`  [wait] ${key}`);
+          const rl = await checkRateLimit(headers);
+          return { delay: true, stop: rl === "stop", fellThrough: false };
+        }
+
+        if (status === 404) {
+          console.log(`  [gone] ${key} (poll 404, re-kicking)`);
+          return { delay: false, stop: false, fellThrough: true };
+        }
+
+        markError(key, repo.pushedAt);
+        errorCount++;
+        console.log(`  [err]  ${key} (poll status ${status})`);
+        return { delay: false, stop: false, fellThrough: false };
+      } catch (err) {
+        markError(key, repo.pushedAt);
+        errorCount++;
+        console.error(`  [err]  ${key} (poll): ${err.message}`);
+        return { delay: false, stop: false, fellThrough: false };
+      }
+    };
+
+    for (const item of queue) {
       if (apiCalls >= budget) {
         console.log(`Budget exhausted (${apiCalls}/${budget}), stopping`);
         break;
       }
-
-      // Check time limit
       if (Date.now() - startTime >= maxMs) {
         console.log(
           `Time limit reached (${options.maxHours}h), stopping after ${apiCalls} calls`
@@ -605,79 +798,45 @@ program
         break;
       }
 
+      const { repo, action, sbomUrl } = item;
       const key = `${repo.owner}/${repo.name}`;
-      const sbomUrl = `https://api.github.com/repos/${repo.owner}/${repo.name}/dependency-graph/sbom`;
-      let lastStatus = 0;
+      let shouldDelay = false;
+      let shouldStop = false;
 
-      try {
-        const { status, data, headers } = await restFetch(sbomUrl);
-        lastStatus = status;
-        apiCalls++;
-
-        if (status === 200) {
-          // Save SPDX file
-          const spdxDir = join(cacheDir, "spdx", repo.owner);
-          mkdirSync(spdxDir, { recursive: true });
-          writeFileSync(
-            join(spdxDir, `${repo.name}.json`),
-            JSON.stringify(data, null, 2)
-          );
-          manifest[key] = {
-            fetchedAt: new Date().toISOString(),
-            pushedAt: repo.pushedAt,
-            status: "ok",
-          };
-          okCount++;
-          console.log(`  [ok]  ${key}`);
-        } else if (status === 404) {
-          manifest[key] = {
-            fetchedAt: new Date().toISOString(),
-            pushedAt: repo.pushedAt,
-            status: "404",
-          };
-          notFoundCount++;
-          console.log(`  [404] ${key}`);
+      if (action === "poll") {
+        const r = await doPoll(repo, key, sbomUrl);
+        shouldDelay = r.delay;
+        shouldStop = r.stop;
+        if (r.fellThrough && apiCalls < budget) {
+          const k = await doKickoff(repo, key);
+          shouldDelay = shouldDelay || k.delay;
+          shouldStop = shouldStop || k.stop;
         }
-
-        // Check rate limit headers — stop if exhausted, or adapt delay
-        const remaining = headers.get("x-ratelimit-remaining");
-        const resetHeader = headers.get("x-ratelimit-reset");
-        if (remaining !== null && parseInt(remaining, 10) === 0) {
-          if (resetHeader) {
-            const waitSec = Math.max(0, parseInt(resetHeader, 10) - Math.floor(Date.now() / 1000)) + 5;
-            console.log(`Rate limit exhausted, waiting ${waitSec}s for reset...`);
-            await delay(waitSec * 1000);
-          } else {
-            console.log("Rate limit exhausted (x-ratelimit-remaining: 0), stopping");
-            break;
-          }
-        }
-      } catch (err) {
-        manifest[key] = {
-          fetchedAt: new Date().toISOString(),
-          pushedAt: repo.pushedAt,
-          status: "error",
-        };
-        errorCount++;
-        console.error(`  [err] ${key}: ${err.message}`);
+      } else {
+        const r = await doKickoff(repo, key);
+        shouldDelay = r.delay;
+        shouldStop = r.stop;
       }
 
       // Save manifest every 50 requests so progress isn't lost
-      if (apiCalls % 50 === 0) {
+      if (apiCalls > 0 && apiCalls % 50 === 0) {
         writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
       }
 
-      // Only delay after successful SBOM fetches (404s don't consume rate limit)
-      if (lastStatus === 200) {
+      if (shouldStop) {
+        console.log("Rate limit exhausted with no reset header, stopping");
+        break;
+      }
+
+      if (shouldDelay) {
         await delay(SBOM_DELAY_MS);
       }
     }
 
-    // Save manifest
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(
-      `SBOM fetch complete in ${elapsed}s: ${apiCalls} API calls, ${okCount} ok, ${notFoundCount} not found, ${errorCount} errors`
+      `SBOM fetch complete in ${elapsed}s: ${apiCalls} API calls, ${okCount} ok, ${kickedOffCount} kicked off, ${stillPendingCount} still pending, ${notFoundCount} not found, ${errorCount} errors`
     );
   });
 
@@ -774,12 +933,24 @@ program
         if (existsSync(srcPath)) {
           const destDir = join(sbomOutputDir, repo.owner);
           mkdirSync(destDir, { recursive: true });
-          writeFileSync(
-            join(destDir, `${repo.name}.json.gz`),
-            gzipSync(readFileSync(srcPath))
-          );
-          copiedCount++;
-          repo.sbom = `sbom/${repo.owner}/${repo.name}.json.gz`;
+          // Normalise legacy wrapped-SPDX cache entries to bare SPDX on emit so
+          // every published file has the same shape. New entries (from the
+          // async API) are already bare.
+          let bare;
+          try {
+            const parsed = JSON.parse(readFileSync(srcPath, "utf8"));
+            bare = parsed.sbom ?? parsed;
+          } catch {
+            bare = null;
+          }
+          if (bare) {
+            writeFileSync(
+              join(destDir, `${repo.name}.json.gz`),
+              gzipSync(JSON.stringify(bare))
+            );
+            copiedCount++;
+            repo.sbom = `sbom/${repo.owner}/${repo.name}.json.gz`;
+          }
         }
       }
     }
@@ -796,7 +967,8 @@ program
       if (!existsSync(srcPath)) continue;
       try {
         const spdx = JSON.parse(readFileSync(srcPath, "utf8"));
-        const packages = spdx.sbom?.packages || [];
+        // Tolerate both bare SPDX (new async API) and the legacy { sbom: {...} } wrapper
+        const packages = spdx.packages || spdx.sbom?.packages || [];
         const deps = packages.map((pkg) => {
           const purl = pkg.externalRefs?.find(
             (r) => r.referenceType === "purl"
