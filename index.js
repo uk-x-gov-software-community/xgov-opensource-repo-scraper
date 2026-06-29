@@ -3,6 +3,7 @@ import { writeFileSync, readFileSync, mkdirSync, existsSync, copyFileSync } from
 import { join } from "path";
 import { gzipSync } from "zlib";
 import { Command } from "commander";
+import { classifyRepo, emptyCounts, addCounts } from "./sbom-normalize.js";
 
 const program = new Command();
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
@@ -959,8 +960,23 @@ program
     writeFileSync(options.reposFile, JSON.stringify(repos, null, 2));
     mkdirSync(sbomOutputDir, { recursive: true });
 
-    // Build consolidated CycloneDX SBOM
+    // Build consolidated CycloneDX SBOM.
+    //
+    // Every package is classified at publish time (see sbom-normalize.js) so the
+    // upstream GitHub SBOM's two blind spots stop poisoning CVE scans: packages
+    // with no resolved version and dev/build/CI tooling are marked CycloneDX
+    // `scope: "excluded"` with an auditable `xgov:scope-basis` property, while
+    // version-pinned runtime dependencies stay `scope: "required"`.
+    //   * sbom.json          — full inventory, now scope/resolution annotated.
+    //   * sbom-runtime.json   — required-scope, version-pinned components only:
+    //                           the artifact to point a scanner at (no phantom
+    //                           name-only hits, no build-tool noise).
+    //   * sbom-quality.json   — per-repo + estate resolution/scope metrics so the
+    //                           coverage gap is measurable, not hidden.
     const cdxComponents = [];
+    const runtimeComponents = [];
+    const qualityPerRepo = [];
+    const qualityTotals = emptyCounts();
     for (const repo of repos) {
       if (!repo.sbom) continue;
       const srcPath = join(cacheDir, "spdx", repo.owner, `${repo.name}.json`);
@@ -969,21 +985,18 @@ program
         const spdx = JSON.parse(readFileSync(srcPath, "utf8"));
         // Tolerate both bare SPDX (new async API) and the legacy { sbom: {...} } wrapper
         const packages = spdx.packages || spdx.sbom?.packages || [];
-        const deps = packages.map((pkg) => {
-          const purl = pkg.externalRefs?.find(
-            (r) => r.referenceType === "purl"
-          )?.referenceLocator;
-          return {
-            type: "library",
-            name: pkg.name,
-            version: pkg.versionInfo || undefined,
-            purl: purl || undefined,
-            licenses: pkg.licenseConcluded && pkg.licenseConcluded !== "NOASSERTION"
-              ? [{ license: { id: pkg.licenseConcluded } }]
-              : undefined,
-          };
+        const { components, counts } = classifyRepo(packages);
+        // Re-attach license info (classifyRepo is version/scope-only) by position.
+        components.forEach((c, i) => {
+          const lic = packages[i]?.licenseConcluded;
+          if (lic && lic !== "NOASSERTION") {
+            c.licenses = [{ license: { id: lic } }];
+          }
         });
-        cdxComponents.push({
+        addCounts(qualityTotals, counts);
+        qualityPerRepo.push({ repo: `${repo.owner}/${repo.name}`, ...counts });
+
+        const appMeta = {
           type: "application",
           name: `${repo.owner}/${repo.name}`,
           version: "",
@@ -991,35 +1004,79 @@ program
           externalReferences: [
             { type: "vcs", url: repo.url || `https://github.com/${repo.owner}/${repo.name}` },
           ],
-          components: deps.length > 0 ? deps : undefined,
+        };
+        cdxComponents.push({
+          ...appMeta,
+          components: components.length > 0 ? components : undefined,
         });
+        const runtime = components.filter((c) => c.scope === "required");
+        if (runtime.length > 0) {
+          runtimeComponents.push({ ...appMeta, components: runtime });
+        }
       } catch {
         // Skip corrupt SPDX files
       }
     }
 
-    const cdx = {
+    const cdxMeta = (name, description) => ({
+      timestamp: new Date().toISOString(),
+      component: { type: "application", name, description },
+      tools: [{ name: "xgov-opensource-repo-scraper" }],
+    });
+    const cdxDoc = (metadata, components) => ({
       bomFormat: "CycloneDX",
       specVersion: "1.5",
       version: 1,
-      metadata: {
-        timestamp: new Date().toISOString(),
-        component: {
-          type: "application",
-          name: "uk-gov-open-source",
-          description: "Consolidated SBOM for UK government open source repositories",
-        },
-        tools: [{ name: "xgov-opensource-repo-scraper" }],
-      },
-      components: cdxComponents,
-    };
+      metadata,
+      components,
+    });
 
+    const cdx = cdxDoc(
+      cdxMeta(
+        "uk-gov-open-source",
+        "Consolidated SBOM for UK government open source repositories"
+      ),
+      cdxComponents
+    );
     const cdxJson = JSON.stringify(cdx);
     const cdxGz = gzipSync(cdxJson);
     writeFileSync(join(outputDir, "sbom.json"), cdxJson);
     writeFileSync(join(outputDir, "sbom.json.gz"), cdxGz);
     console.log(
       `Published consolidated CycloneDX SBOM: ${cdxComponents.length} repos (${(cdxJson.length / 1024 / 1024).toFixed(1)}MB, ${(cdxGz.length / 1024 / 1024).toFixed(1)}MB gzipped)`
+    );
+
+    const runtimeCdx = cdxDoc(
+      cdxMeta(
+        "uk-gov-open-source-runtime",
+        "Runtime-only (version-pinned, scope=required) consolidated SBOM for CVE scanning — excludes dev/build/CI tooling and version-unresolved packages"
+      ),
+      runtimeComponents
+    );
+    const runtimeJson = JSON.stringify(runtimeCdx);
+    writeFileSync(join(outputDir, "sbom-runtime.json"), runtimeJson);
+    writeFileSync(join(outputDir, "sbom-runtime.json.gz"), gzipSync(runtimeJson));
+    console.log(
+      `Published runtime-only SBOM: ${runtimeComponents.length} repos, ${qualityTotals.runtime} scannable components (excluded ${qualityTotals.excludedUnresolved} unresolved, ${qualityTotals.excludedDev} dev-tooling, ${qualityTotals.excludedCi} CI-action)`
+    );
+
+    const pct = (n) =>
+      qualityTotals.packages > 0
+        ? Math.round((n / qualityTotals.packages) * 1000) / 10
+        : 0;
+    const quality = {
+      generatedAt: new Date().toISOString(),
+      totals: qualityTotals,
+      resolvedPct: pct(qualityTotals.resolved),
+      runtimePct: pct(qualityTotals.runtime),
+      perRepo: qualityPerRepo,
+    };
+    writeFileSync(
+      join(outputDir, "sbom-quality.json"),
+      JSON.stringify(quality, null, 2)
+    );
+    console.log(
+      `SBOM quality: ${qualityTotals.packages} packages, ${qualityTotals.resolved} resolved (${quality.resolvedPct}%), ${qualityTotals.unresolved} unresolved`
     );
 
     console.log(
