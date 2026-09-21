@@ -14,6 +14,11 @@ import { pipeline } from "stream/promises";
 import { Readable } from "stream";
 import { Command } from "commander";
 import { classifyRepo, emptyCounts, addCounts } from "./sbom-normalize.js";
+import {
+  OGL_FILES,
+  OGL_BATCH_SIZE,
+  detectOglLicense,
+} from "./ogl-license.js";
 
 const program = new Command();
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
@@ -113,7 +118,7 @@ function buildRepoQuery(entries) {
           url
           isArchived
           isFork
-          licenseInfo { key name spdxId }
+          licenseInfo { key name spdxId url }
           stargazerCount
           primaryLanguage { name }
           forkCount
@@ -371,6 +376,105 @@ async function fetchAllRepos(orgs, cacheDir) {
   return allRepos;
 }
 
+// ---------- Open Government Licence detection ----------
+
+function buildLicenseQuery(entries) {
+  const fragments = entries.map(({ alias, owner, name }) => {
+    const blobs = OGL_FILES.map(
+      (file, i) =>
+        `f${i}: object(expression: "HEAD:${file}") { ... on Blob { text } }`
+    ).join("\n        ");
+    return `
+    ${alias}: repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(name)}) {
+        ${blobs}
+    }`;
+  });
+  return `{ rateLimit { cost remaining resetAt } ${fragments.join("\n")} }`;
+}
+
+function licenseTextsOf(node) {
+  if (!node) return [];
+  return OGL_FILES.map((_, i) => node[`f${i}`]?.text).filter(Boolean);
+}
+
+async function resolveOglLicenses(repos, cacheDir) {
+  const candidates = repos.filter((r) => r.license?.key === "other");
+  if (candidates.length === 0) return repos;
+
+  const cachePath = cacheDir ? `${cacheDir}/ogl-by-repo.json` : null;
+  let cache = {};
+  if (cachePath && existsSync(cachePath)) {
+    try {
+      cache = JSON.parse(readFileSync(cachePath, "utf8"));
+    } catch {
+      console.log("OGL cache corrupt, probing all candidates");
+    }
+  }
+
+  const toProbe = [];
+  let fromCache = 0;
+  for (const repo of candidates) {
+    const key = `${repo.owner}/${repo.name}`;
+    const cached = cache[key];
+    if (cached && cached.pushedAt === repo.pushedAt) {
+      fromCache++;
+      if (cached.license) repo.license = cached.license;
+    } else {
+      toProbe.push(repo);
+    }
+  }
+
+  console.log(
+    `OGL detection: ${candidates.length} candidates (${fromCache} cached, ${toProbe.length} to probe)`
+  );
+
+  let found = 0;
+  for (let i = 0; i < toProbe.length; i += OGL_BATCH_SIZE) {
+    const batch = toProbe
+      .slice(i, i + OGL_BATCH_SIZE)
+      .map((repo, j) => ({ repo, alias: `r${j}`, owner: repo.owner, name: repo.name }));
+
+    let result;
+    try {
+      result = await graphqlFetch(buildLicenseQuery(batch));
+    } catch (err) {
+      console.error("OGL licence query failed:", err.message);
+      continue;
+    }
+    await checkRateLimit(result.data?.rateLimit);
+
+    for (const entry of batch) {
+      const node = result.data?.[entry.alias];
+      // A null node means GitHub could not read that repo: it is deleted, it
+      // is renamed, or the query errored. Skip it rather than cache a false
+      // negative for a repo that may hold the OGL.
+      if (!node) continue;
+      const license = detectOglLicense(licenseTextsOf(node));
+      if (license) {
+        entry.repo.license = license;
+        found++;
+      }
+      cache[`${entry.repo.owner}/${entry.repo.name}`] = {
+        pushedAt: entry.repo.pushedAt,
+        license,
+      };
+    }
+
+    if (i + OGL_BATCH_SIZE < toProbe.length) {
+      await delay(INTER_BATCH_DELAY_MS);
+    }
+  }
+
+  if (cachePath) {
+    mkdirSync(cacheDir, { recursive: true });
+    writeFileSync(cachePath, JSON.stringify(cache, null, 2));
+  }
+
+  const total = candidates.filter((r) => r.license?.key?.startsWith("ogl")).length;
+  console.log(`OGL detection: ${found} newly identified, ${total} OGL repos total`);
+  return repos;
+}
+
 async function getRepos(org) {
   const repos = [];
   let cursor = null;
@@ -435,6 +539,7 @@ program
       );
     }
     const allRepos = await fetchAllRepos(orgs, options.cacheDir);
+    await resolveOglLicenses(allRepos, options.cacheDir);
     return outputIt(allRepos, options.write);
   });
 
