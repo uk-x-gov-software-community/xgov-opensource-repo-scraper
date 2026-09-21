@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node index.js",
     "lint": "eslint .",
-    "test": "npm run lint"
+    "test": "npm run lint && node --test \"test/*.test.js\""
   },
   "repository": {
     "type": "git",

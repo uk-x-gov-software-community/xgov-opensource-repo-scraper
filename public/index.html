@@ -560,6 +560,7 @@
       'MIT License': '#3b82f6',
       'Apache License 2.0': '#f59e0b',
       'None': '#dc2626',
+      'OGL': '#0ea5e9',
       'GPL': '#16a34a',
       'BSD': '#8b5cf6',
       'Other': '#94a3b8'
@@ -609,7 +610,7 @@
         }
 
         // License categorization
-        var lcat = categorizeLicense(licName);
+        var lcat = categorizeLicense(r.license);
         stats.licenseCounts[lcat] = (stats.licenseCounts[lcat] || 0) + 1;
 
         // Created by year
@@ -640,8 +641,11 @@
       }
     }
 
-    function categorizeLicense(name) {
+    function categorizeLicense(license) {
+      var name = (license && license.name) || '';
+      var key = (license && license.key) || '';
       if (!name) return 'None';
+      if (key.indexOf('ogl') === 0) return 'OGL';
       if (name.indexOf('MIT') !== -1) return 'MIT License';
       if (name.indexOf('Apache') !== -1) return 'Apache License 2.0';
       if (name.indexOf('GPL') !== -1 || name.indexOf('GNU') !== -1 || name.indexOf('AGPL') !== -1 || name.indexOf('LGPL') !== -1) return 'GPL';
@@ -750,7 +754,7 @@
       container.innerHTML = html;
 
       var svg = document.getElementById('donut-svg');
-      var categories = ['MIT License', 'Apache License 2.0', 'None', 'GPL', 'BSD', 'Other'];
+      var categories = ['MIT License', 'Apache License 2.0', 'None', 'OGL', 'GPL', 'BSD', 'Other'];
       for (var i = 0; i < categories.length; i++) {
         var circle = document.createElementNS(svgNS, 'circle');
         circle.setAttribute('cx', '50');
@@ -872,7 +876,7 @@
       var legend = document.getElementById('donut-legend');
       if (!svg || !legend) return;
 
-      var categories = ['MIT License', 'Apache License 2.0', 'None', 'GPL', 'BSD', 'Other'];
+      var categories = ['MIT License', 'Apache License 2.0', 'None', 'OGL', 'GPL', 'BSD', 'Other'];
       var total = 0;
       for (var i = 0; i < categories.length; i++) {
         total += stats.licenseCounts[categories[i]] || 0;
@@ -1263,10 +1267,12 @@
       td2.title = licText;
       if (repo.license && repo.license.name) {
         var a2 = document.createElement('a');
-        if (repo.license.name === 'Other') {
+        if (repo.license.url) {
+          a2.href = repo.license.url;
+        } else if (repo.license.name === 'Other') {
           a2.href = (repo.url || '') + '/blob/master/LICENSE';
         } else {
-          a2.href = repo.license.url || '#';
+          a2.href = '#';
         }
         a2.textContent = repo.license.name;
         td2.appendChild(a2);
