@@ -9,6 +9,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read
 
 concurrency:
   group: "sbom"
@@ -32,7 +33,7 @@ jobs:
           curl -sSfL https://uk-x-gov-software-community.github.io/xgov-opensource-repo-scraper/repos.json -o repos.json
           node -e "const r = JSON.parse(require('fs').readFileSync('repos.json','utf8')); console.log(r.length + ' repos loaded')"
       - name: Restore SBOM cache
-        uses: actions/cache@v6.1.0
+        uses: actions/cache/restore@v6.1.0
         with:
           path: sbom-cache/
           key: sbom-cache-${{ github.run_id }}
@@ -55,6 +56,12 @@ jobs:
         run: node index.js fetch-sboms --repos-file ./repos.json --cache-dir ./sbom-cache --budget 95 --max-hours 1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Save SBOM cache
+        if: always()
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: sbom-cache/
+          key: sbom-cache-${{ github.run_id }}
       - name: Build public directory
         run: |
           cp repos.json public/repos.json
@@ -63,6 +70,31 @@ jobs:
       - uses: actions/upload-pages-artifact@v5.0.0
         with:
           path: public
+      - name: Wait for Pages artifact to be visible
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # deploy-pages does a single immediate metadata lookup. For a large
+          # artifact (this site is ~300MB) the finalize->visible lag on GitHub's
+          # artifacts API exceeds that lookup, so the deploy aborts with
+          # "No artifacts named github-pages were found". Poll the same
+          # name-filtered endpoint deploy-pages uses until it appears.
+          for i in $(seq 1 30); do
+            count=$(gh api \
+              "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?name=github-pages" \
+              --jq '.total_count' 2>/dev/null || echo 0)
+            if [ "${count:-0}" -ge 1 ]; then
+              echo "github-pages artifact visible after attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i: github-pages artifact not visible yet; waiting 10s"
+            sleep 10
+          done
+          echo "::warning::github-pages artifact still not visible after polling; attempting deploy anyway"
       - name: Deploy to GitHub Pages
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v5.0.0
+      - name: Deploy to GitHub Pages (retry)
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v5.0.0
